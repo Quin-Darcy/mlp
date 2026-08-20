@@ -1,0 +1,16 @@
+use ndarray::Array1;
+
+pub struct Entry {
+    pub input: Array1<f32>,
+    pub pre_activations: Array1<f32>,
+}
+
+pub struct ForwardCache {
+    pub entries: Vec<Entry>,
+}
+
+impl ForwardCache {
+    pub fn new_empty() -> Self {
+        ForwardCache { entries: vec![] }
+    }
+}
