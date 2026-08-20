@@ -7,23 +7,17 @@ pub struct Network {
     layers: Vec<Layer>,
 }
 
-impl Default for Network {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Network {
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         todo!()
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn forward_pass(&self, input: &Array1<f32>) -> ForwardCache {
         let mut layer_input: Array1<f32> = input.clone();
         let _pre_activations: Array1<f32>;
-        let mut cache = ForwardCache::new_empty();
+        let mut cache = ForwardCache::new();
 
         for layer in &self.layers {
             let pre_post: (Array1<f32>, Array1<f32>) = layer.forward_pass(&layer_input);
