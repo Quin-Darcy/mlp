@@ -10,6 +10,7 @@ pub struct ForwardCache {
 }
 
 impl ForwardCache {
+    #[must_use] 
     pub fn new_empty() -> Self {
         ForwardCache { entries: vec![] }
     }

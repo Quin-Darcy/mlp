@@ -1,4 +1,4 @@
-use ndarray::{Array1, array};
+use ndarray::Array1;
 
 pub enum Activation {
     RELU,
@@ -6,6 +6,7 @@ pub enum Activation {
 }
 
 impl Activation {
+    #[must_use] 
     pub fn apply(&self, pre_activations: &Array1<f32>) -> Array1<f32> {
         match self {
             Self::RELU => pre_activations.mapv(|x| x.max(0.0)),

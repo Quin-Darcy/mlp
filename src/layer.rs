@@ -8,11 +8,19 @@ pub struct Layer {
     activation: Activation,
 }
 
+impl Default for Layer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Layer {
+    #[must_use] 
     pub fn new() -> Self {
         todo!()
     }
 
+    #[must_use] 
     pub fn forward_pass(&self, input: &Array1<f32>) -> (Array1<f32>, Array1<f32>) {
         let pre_activations: Array1<f32> = self.weights.dot(input) + &self.biases;
         let post_activations: Array1<f32> = self.activation.apply(&pre_activations);

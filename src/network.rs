@@ -1,4 +1,4 @@
-use ndarray::{Array1, Array2, array};
+use ndarray::Array1;
 
 use crate::cache::{Entry, ForwardCache};
 use crate::layer::Layer;
@@ -7,14 +7,22 @@ pub struct Network {
     layers: Vec<Layer>,
 }
 
+impl Default for Network {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Network {
+    #[must_use] 
     pub fn new() -> Self {
         todo!()
     }
 
+    #[must_use] 
     pub fn forward_pass(&self, input: &Array1<f32>) -> ForwardCache {
         let mut layer_input: Array1<f32> = input.clone();
-        let mut pre_activations: Array1<f32>;
+        let _pre_activations: Array1<f32>;
         let mut cache = ForwardCache::new_empty();
 
         for layer in &self.layers {
