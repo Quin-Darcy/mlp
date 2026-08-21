@@ -18,6 +18,7 @@ impl Activation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ndarray::array;
 
     // Add new test for each new activation function added
 

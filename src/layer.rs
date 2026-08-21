@@ -14,7 +14,6 @@ pub struct Layer {
 }
 
 impl Layer {
-    #[must_use]
     pub fn new(
         weights: Array2<f32>,
         biases: Array1<f32>,
@@ -38,5 +37,44 @@ impl Layer {
         let pre_activations: Array1<f32> = self.weights.dot(input) + &self.biases;
         let post_activations: Array1<f32> = self.activation.apply(&pre_activations);
         (pre_activations, post_activations)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::array;
+
+    #[test]
+    fn test_layer_new_valid_arg() {
+        let test_weights: Array2<f32> = array![
+            [1.0, 0.3, 1.4],
+            [0.0, 1.0, 3.2]
+        ];
+        let test_biases: Array1<f32> = array![1.0, 1.0];
+        let test_activation = Activation::RELU;
+        let test_layer = Layer::new(test_weights, test_biases, test_activation);
+
+        assert!(test_layer.is_ok());
+    }
+
+    #[test]
+    fn test_layer_new_invalid_args() {
+        let test_weights: Array2<f32> = array![
+            [1.0, 1.0, 1.0],
+            [2.0, 2.0, 2.0]
+        ];
+        let test_biases: Array1<f32> = array![1.0, 1.0, 1.0];
+        let test_activation = Activation::RELU;
+        let test_layer = Layer::new(test_weights, test_biases, test_activation);
+
+        assert!(test_layer.is_err());
+    }
+
+    #[test]
+    fn test_layer_forward_pass() {
+        let test_input1: Array1<f32> = array![1.0, 0.0, 0.0, 0.0];
+        let test_input2: Array1<f32> = array![0.0, -1.0, 1.0, 0.3];
+        let test_input3: Array1<f32> = array![2.5, 0.0, 0.5, 1.0];
     }
 }
