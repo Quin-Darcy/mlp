@@ -47,3 +47,77 @@ impl Network {
         Ok(cache)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::{Array2, array};
+    use crate::activation::Activation;
+
+    #[test]
+    fn test_network_valid_args() {
+        let test_weights1: Array2<f32> = array![
+            [1.0, 0.0],
+            [0.0, 1.0]
+        ];
+        let test_biases1: Array1<f32> = array![0.0, 0.0];
+        let test_activation1 = Activation::RELU;
+        let test_layer1 = Layer::new(test_weights1, test_biases1, test_activation1).unwrap();
+
+        let test_weights2: Array2<f32> = array![
+            [1.0, 0.0],
+            [0.0, 1.0],
+            [1.0, 1.0]
+        ];
+        let test_biases2: Array1<f32> = array![0.0, 0.0, 0.0];
+        let test_activation2 = Activation::RELU;
+        let test_layer2 = Layer::new(test_weights2, test_biases2, test_activation2).unwrap();
+
+        let test_weights3: Array2<f32> = array![
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ];
+        let test_biases3: Array1<f32> = array![0.0, 0.0];
+        let test_activation3 = Activation::RELU;
+        let test_layer3 = Layer::new(test_weights3, test_biases3, test_activation3).unwrap();
+
+        let layers: Vec<Layer> = vec![test_layer1, test_layer2, test_layer3];
+        
+        let result = Network::new(layers);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_network_invalid_args() {
+        let test_weights1: Array2<f32> = array![
+            [1.0, 0.0],
+            [0.0, 1.0]
+        ];
+        let test_biases1: Array1<f32> = array![0.0, 0.0];
+        let test_activation1 = Activation::RELU;
+        let test_layer1 = Layer::new(test_weights1, test_biases1, test_activation1).unwrap();
+
+        let test_weights2: Array2<f32> = array![
+            [1.0, 0.0],
+            [0.0, 1.0],
+            [1.0, 1.0]
+        ];
+        let test_biases2: Array1<f32> = array![0.0, 0.0, 0.0];
+        let test_activation2 = Activation::RELU;
+        let test_layer2 = Layer::new(test_weights2, test_biases2, test_activation2).unwrap();
+
+        let test_weights3: Array2<f32> = array![
+            [1.0, 0.0],
+            [0.0, 1.0],
+        ];
+        let test_biases3: Array1<f32> = array![0.0, 0.0];
+        let test_activation3 = Activation::RELU;
+        let test_layer3 = Layer::new(test_weights3, test_biases3, test_activation3).unwrap();
+
+        let layers: Vec<Layer> = vec![test_layer1, test_layer2, test_layer3];
+        
+        let result = Network::new(layers);
+        assert!(result.is_err());
+    }
+
+}
