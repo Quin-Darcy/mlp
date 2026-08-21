@@ -1,11 +1,12 @@
 use ndarray::Array1;
 
+#[derive(Debug, PartialEq)]
 pub struct Entry {
     pub input: Array1<f32>,
-    pub pre_activations: Array1<f32>,
+    pub pre_activation: Array1<f32>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, PartialEq)]
 pub struct ForwardCache {
     pub entries: Vec<Entry>,
 }

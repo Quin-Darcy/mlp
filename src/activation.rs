@@ -7,10 +7,10 @@ pub enum Activation {
 
 impl Activation {
     #[must_use]
-    pub fn apply(&self, pre_activations: &Array1<f32>) -> Array1<f32> {
+    pub fn apply(&self, pre_activation: &Array1<f32>) -> Array1<f32> {
         match self {
-            Self::RELU => pre_activations.mapv(|x| x.max(0.0)),
-            Self::IDENTITY => pre_activations.clone(),
+            Self::RELU => pre_activation.mapv(|x| x.max(0.0)),
+            Self::IDENTITY => pre_activation.clone(),
         }
     }
 }

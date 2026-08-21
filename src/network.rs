@@ -1,12 +1,18 @@
 use ndarray::Array1;
 
 use crate::cache::{Entry, ForwardCache};
-use crate::layer::{LayerError, Layer};
+use crate::layer::{LayerError, LayerOutput, Layer};
 
 
 #[derive(Debug)]
 pub enum NetworkError {
     InvalidArgDimensions(String),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct NetworkOutput {
+    pub cache: ForwardCache,
+    pub output: Array1<f32>,
 }
 
 pub struct Network {
@@ -31,19 +37,23 @@ impl Network {
     }
 
     #[must_use]
-    pub fn forward_pass(&self, input: &Array1<f32>) -> Result<ForwardCache, LayerError> {
+    pub fn forward_pass(&self, input: &Array1<f32>) -> Result<NetworkOutput, LayerError> {
         let mut layer_input: Array1<f32> = input.clone();
+        let mut layer_output: LayerOutput;
         let mut cache = ForwardCache::new();
 
         for layer in &self.layers {
-            let pre_post: (Array1<f32>, Array1<f32>) = layer.forward_pass(&layer_input)?;
+            layer_output = layer.forward_pass(&layer_input)?;
             cache.entries.push(Entry {
                 input: layer_input.clone(),
-                pre_activations: pre_post.0,
+                pre_activation: layer_output.pre_activation,
             });
-            layer_input = pre_post.1;
+            layer_input = layer_output.post_activation;
         }
-        Ok(cache)
+        Ok(NetworkOutput {
+            cache: cache,
+            output: layer_input
+        })
     }
 }
 
