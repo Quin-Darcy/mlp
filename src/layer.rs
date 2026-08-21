@@ -8,12 +8,13 @@ pub enum LayerError {
 }
 
 pub struct Layer {
-    weights: Array2<f32>,
+    pub weights: Array2<f32>,
     biases: Array1<f32>,
     activation: Activation,
 }
 
 impl Layer {
+    #[must_use]
     pub fn new(
         weights: Array2<f32>,
         biases: Array1<f32>,
