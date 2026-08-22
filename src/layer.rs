@@ -1,10 +1,13 @@
 use ndarray::{Array1, Array2};
+use rand::distr::{Distribution, Uniform};
 
 use crate::activation::Activation;
+
 
 #[derive(Debug)]
 pub enum LayerError {
     InvalidArgDimensions(String),
+    InvalidRandRange(String),
 }
 
 #[derive(Debug, PartialEq)]
@@ -36,6 +39,32 @@ impl Layer {
             weights,
             biases,
             activation,
+        })
+    }
+
+    #[must_use]
+    pub fn new_random(
+        dims: [usize; 2],
+        value_range: [f32; 2],
+        activation: Activation
+    ) -> Result<Self, LayerError> {
+        // Validate the random range
+        if value_range[1] < value_range[0] {
+            return Err(LayerError::InvalidRandRange(
+                "Value range must be of form [lower, upper] with lower < upper".to_string()
+            ));
+        }
+
+        let mut rng = rand::rng();
+        let dist = Uniform::new(value_range[0], value_range[1]).unwrap();
+
+        let biases = Array1::from_shape_simple_fn(dims[0], || dist.sample(&mut rng));
+        let weights = Array2::from_shape_simple_fn((dims[0], dims[1]), || dist.sample(&mut rng));
+        
+        Ok(Layer {
+            weights,
+            biases,
+            activation
         })
     }
 
@@ -79,6 +108,37 @@ mod tests {
         let test_layer = Layer::new(test_weights, test_biases, test_activation);
 
         assert!(test_layer.is_err());
+    }
+
+    #[test]
+    fn test_layer_new_random_valid_args() {
+        let test_dims: [usize; 2] = [3, 4];
+        let test_range: [f32; 2] = [-1.0, 1.0];
+        let test_activation = Activation::RELU;
+
+        let result = Layer::new_random(test_dims, test_range, test_activation);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_layer_new_random_invalid_args() {
+        let test_dims: [usize; 2] = [2, 3];
+        let test_range: [f32; 2] = [3.0, 1.0];
+        let test_activation = Activation::RELU;
+
+        let result = Layer::new_random(test_dims, test_range, test_activation);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_layer_new_random() {
+        let test_dims: [usize; 2] = [2, 4];
+        let test_range: [f32; 2] = [-1.0, 1.0];
+        let test_activation = Activation::RELU;
+
+        let test_layer = Layer::new_random(test_dims, test_range, test_activation).unwrap();
+        assert_eq!(test_layer.weights.dim().0, test_dims[0]);
+        assert_eq!(test_layer.weights.dim().1, test_dims[1]);
     }
 
     #[test]
