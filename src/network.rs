@@ -157,5 +157,41 @@ mod tests {
         let result1 = test_network1.forward_pass(&test_input1).unwrap();
 
         assert_eq!(result1.output, test_expected_output1);
+
+        // Test 2
+        let test_weights21: Array2<f32> = array![
+            [1.0, 2.0],
+            [0.0, 5.0],
+            [1.0, 1.0]
+        ];
+        let test_biases21: Array1<f32> = array![-3.0, 1.0, -32.0];
+        let test_activation21 = Activation::RELU;
+        let test_layer21 = Layer::new(test_weights21, test_biases21, test_activation21).unwrap();
+
+        let test_weights22: Array2<f32> = array![
+            [-1.0, 0.0, 1.0],
+            [0.0, 1.0, 0.0]
+        ];
+        let test_biases22: Array1<f32> = array![7.0, -20.0];
+        let test_activation22 = Activation::RELU;
+        let test_layer22 = Layer::new(test_weights22, test_biases22, test_activation22).unwrap();
+
+        let test_weights23: Array2<f32> = array![
+            [2.0, -2.0],
+            [1.0, -1.0],
+            [-2.0, -1.0]
+        ];
+        let test_biases23: Array1<f32> = array![3.0, -6.0, 5.2];
+        let test_activation23 = Activation::RELU;
+        let test_layer23 = Layer::new(test_weights23, test_biases23, test_activation23).unwrap();
+
+        let test_layers2: Vec<Layer> = vec![test_layer21, test_layer22, test_layer23];
+        let test_network2 = Network::new(test_layers2).unwrap();
+
+        let test_input2: Array1<f32> = array![3.0, 4.0];
+        let test_expected_output2: Array1<f32> = array![1.0, 0.0, 4.2];
+        let result2 = test_network2.forward_pass(&test_input2).unwrap();
+
+        assert_eq!(result2.output, test_expected_output2);
     }
 }
