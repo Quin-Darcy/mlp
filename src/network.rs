@@ -1,8 +1,7 @@
 use ndarray::Array1;
 
 use crate::cache::{Entry, ForwardCache};
-use crate::layer::{LayerError, LayerOutput, Layer};
-
+use crate::layer::{Layer, LayerError, LayerOutput};
 
 #[derive(Debug)]
 pub enum NetworkError {
@@ -24,16 +23,14 @@ impl Network {
     pub fn new(layers: Vec<Layer>) -> Result<Self, NetworkError> {
         // Validate that the dimensions of consecutive layers
         for i in 0..layers.len() - 1 {
-            if layers[i].weights.dim().0 != layers[i+1].weights.dim().1 {
+            if layers[i].weights.dim().0 != layers[i + 1].weights.dim().1 {
                 return Err(NetworkError::InvalidArgDimensions(
                     "The number of rows in one layer's weight matrix must equal the number of columns in the next layer's weight matrix.".to_string(),
                 ));
             }
         }
 
-        Ok(Self {
-            layers
-        })
+        Ok(Self { layers })
     }
 
     #[must_use]
@@ -51,8 +48,8 @@ impl Network {
             layer_input = layer_output.post_activation;
         }
         Ok(NetworkOutput {
-            cache: cache,
-            output: layer_input
+            cache,
+            output: layer_input,
         })
     }
 }
@@ -60,65 +57,45 @@ impl Network {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::{Array2, array};
     use crate::activation::Activation;
+    use ndarray::{Array2, array};
 
     #[test]
     fn test_network_valid_args() {
-        let test_weights1: Array2<f32> = array![
-            [1.0, 0.0],
-            [0.0, 1.0]
-        ];
+        let test_weights1: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
         let test_biases1: Array1<f32> = array![0.0, 0.0];
         let test_activation1 = Activation::RELU;
         let test_layer1 = Layer::new(test_weights1, test_biases1, test_activation1).unwrap();
 
-        let test_weights2: Array2<f32> = array![
-            [1.0, 0.0],
-            [0.0, 1.0],
-            [1.0, 1.0]
-        ];
+        let test_weights2: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
         let test_biases2: Array1<f32> = array![0.0, 0.0, 0.0];
         let test_activation2 = Activation::RELU;
         let test_layer2 = Layer::new(test_weights2, test_biases2, test_activation2).unwrap();
 
-        let test_weights3: Array2<f32> = array![
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-        ];
+        let test_weights3: Array2<f32> = array![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0],];
         let test_biases3: Array1<f32> = array![0.0, 0.0];
         let test_activation3 = Activation::RELU;
         let test_layer3 = Layer::new(test_weights3, test_biases3, test_activation3).unwrap();
 
         let layers: Vec<Layer> = vec![test_layer1, test_layer2, test_layer3];
-        
+
         let result = Network::new(layers);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_network_invalid_args() {
-        let test_weights1: Array2<f32> = array![
-            [1.0, 0.0],
-            [0.0, 1.0]
-        ];
+        let test_weights1: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
         let test_biases1: Array1<f32> = array![0.0, 0.0];
         let test_activation1 = Activation::RELU;
         let test_layer1 = Layer::new(test_weights1, test_biases1, test_activation1).unwrap();
 
-        let test_weights2: Array2<f32> = array![
-            [1.0, 0.0],
-            [0.0, 1.0],
-            [1.0, 1.0]
-        ];
+        let test_weights2: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
         let test_biases2: Array1<f32> = array![0.0, 0.0, 0.0];
         let test_activation2 = Activation::RELU;
         let test_layer2 = Layer::new(test_weights2, test_biases2, test_activation2).unwrap();
 
-        let test_weights3: Array2<f32> = array![
-            [1.0, 0.0],
-            [0.0, 1.0],
-        ];
+        let test_weights3: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0],];
         let test_biases3: Array1<f32> = array![0.0, 0.0];
         let test_activation3 = Activation::RELU;
         let test_layer3 = Layer::new(test_weights3, test_biases3, test_activation3).unwrap();
@@ -131,20 +108,12 @@ mod tests {
     #[test]
     fn test_network_forward_pass() {
         // Test 1
-        let test_weights11: Array2<f32> = array![
-            [1.0, 0.0, 0.5, 0.5],
-            [0.0, 1.0, 0.5, -0.5]
-        ];
+        let test_weights11: Array2<f32> = array![[1.0, 0.0, 0.5, 0.5], [0.0, 1.0, 0.5, -0.5]];
         let test_biases11: Array1<f32> = array![0.0, 0.0];
         let test_activation11 = Activation::RELU;
         let test_layer11 = Layer::new(test_weights11, test_biases11, test_activation11).unwrap();
 
-        let test_weights12: Array2<f32> = array![
-            [1.0, 0.0],
-            [0.0, 1.0],
-            [0.5, 0.5],
-            [0.5, -0.5]
-        ];
+        let test_weights12: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0], [0.5, 0.5], [0.5, -0.5]];
         let test_biases12: Array1<f32> = array![0.0, 0.0, 0.0, 0.0];
         let test_activation12 = Activation::RELU;
         let test_layer12 = Layer::new(test_weights12, test_biases12, test_activation12).unwrap();
@@ -159,28 +128,17 @@ mod tests {
         assert_eq!(result1.output, test_expected_output1);
 
         // Test 2
-        let test_weights21: Array2<f32> = array![
-            [1.0, 2.0],
-            [0.0, 5.0],
-            [1.0, 1.0]
-        ];
+        let test_weights21: Array2<f32> = array![[1.0, 2.0], [0.0, 5.0], [1.0, 1.0]];
         let test_biases21: Array1<f32> = array![-3.0, 1.0, -32.0];
         let test_activation21 = Activation::RELU;
         let test_layer21 = Layer::new(test_weights21, test_biases21, test_activation21).unwrap();
 
-        let test_weights22: Array2<f32> = array![
-            [-1.0, 0.0, 1.0],
-            [0.0, 1.0, 0.0]
-        ];
+        let test_weights22: Array2<f32> = array![[-1.0, 0.0, 1.0], [0.0, 1.0, 0.0]];
         let test_biases22: Array1<f32> = array![7.0, -20.0];
         let test_activation22 = Activation::RELU;
         let test_layer22 = Layer::new(test_weights22, test_biases22, test_activation22).unwrap();
 
-        let test_weights23: Array2<f32> = array![
-            [2.0, -2.0],
-            [1.0, -1.0],
-            [-2.0, -1.0]
-        ];
+        let test_weights23: Array2<f32> = array![[2.0, -2.0], [1.0, -1.0], [-2.0, -1.0]];
         let test_biases23: Array1<f32> = array![3.0, -6.0, 5.2];
         let test_activation23 = Activation::RELU;
         let test_layer23 = Layer::new(test_weights23, test_biases23, test_activation23).unwrap();

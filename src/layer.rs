@@ -49,9 +49,9 @@ impl Layer {
         }
         let pre_activation: Array1<f32> = self.weights.dot(input) + &self.biases;
         let post_activation: Array1<f32> = self.activation.apply(&pre_activation);
-        Ok(LayerOutput { 
-            pre_activation, 
-            post_activation
+        Ok(LayerOutput {
+            pre_activation,
+            post_activation,
         })
     }
 }
@@ -63,10 +63,7 @@ mod tests {
 
     #[test]
     fn test_layer_new_valid_args() {
-        let test_weights: Array2<f32> = array![
-            [1.0, 0.3, 1.4],
-            [0.0, 1.0, 3.2]
-        ];
+        let test_weights: Array2<f32> = array![[1.0, 0.3, 1.4], [0.0, 1.0, 3.2]];
         let test_biases: Array1<f32> = array![1.0, 1.0];
         let test_activation = Activation::RELU;
         let test_layer = Layer::new(test_weights, test_biases, test_activation);
@@ -76,10 +73,7 @@ mod tests {
 
     #[test]
     fn test_layer_new_invalid_args() {
-        let test_weights: Array2<f32> = array![
-            [1.0, 1.0, 1.0],
-            [2.0, 2.0, 2.0]
-        ];
+        let test_weights: Array2<f32> = array![[1.0, 1.0, 1.0], [2.0, 2.0, 2.0]];
         let test_biases: Array1<f32> = array![1.0, 1.0, 1.0];
         let test_activation = Activation::RELU;
         let test_layer = Layer::new(test_weights, test_biases, test_activation);
@@ -136,31 +130,28 @@ mod tests {
         let test_expected_post1: Array1<f32> = array![0.0, 0.5, 2.0];
         let test_expected_output1 = LayerOutput {
             pre_activation: test_expected_pre1,
-            post_activation: test_expected_post1
+            post_activation: test_expected_post1,
         };
         assert_eq!(
-            test_layer1.forward_pass(&test_input1).unwrap(), 
+            test_layer1.forward_pass(&test_input1).unwrap(),
             test_expected_output1
         );
 
         // Test 2
-        let test_weights2: Array2<f32> = array![
-            [1.0, -1.0, 2.0, -2.0],
-            [-2.0, 2.0, -1.0, 1.0]
-        ];
+        let test_weights2: Array2<f32> = array![[1.0, -1.0, 2.0, -2.0], [-2.0, 2.0, -1.0, 1.0]];
         let test_biases2: Array1<f32> = array![-2.4, 2.7];
         let test_activation2 = Activation::IDENTITY;
         let test_layer2 = Layer::new(test_weights2, test_biases2, test_activation2).unwrap();
-        
+
         let test_input2: Array1<f32> = array![0.0, -1.0, 1.0, 0.3];
         let test_expected_pre2: Array1<f32> = array![0.0, 0.0];
         let test_expected_post2: Array1<f32> = array![0.0, 0.0];
         let test_expected_output2 = LayerOutput {
             pre_activation: test_expected_pre2,
-            post_activation: test_expected_post2
+            post_activation: test_expected_post2,
         };
         assert_eq!(
-            test_layer2.forward_pass(&test_input2).unwrap(), 
+            test_layer2.forward_pass(&test_input2).unwrap(),
             test_expected_output2
         );
 
@@ -179,10 +170,10 @@ mod tests {
         let test_expected_post3: Array1<f32> = array![1.0, 0.0, 9.0];
         let test_expected_output3 = LayerOutput {
             pre_activation: test_expected_pre3,
-            post_activation: test_expected_post3
+            post_activation: test_expected_post3,
         };
         assert_eq!(
-            test_layer3.forward_pass(&test_input3).unwrap(), 
+            test_layer3.forward_pass(&test_input3).unwrap(),
             test_expected_output3
         );
     }
