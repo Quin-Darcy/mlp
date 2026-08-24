@@ -1,9 +1,19 @@
-use ndarray::{Array1, Array2, array};
+use rand::SeedableRng;
+use rand::rngs::StdRng;
+
+use mlp::layer::Layer;
+use mlp::activation::Activation;
+
 
 fn main() {
-    let test1: Array1<f32> = array![0.0, 1.0, 2.0];
-    let test2: Array2<f32> = array![[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]];
+    let seed: u64 = 48;
+    let mut rng = StdRng::seed_from_u64(seed);
 
-    println!("{:?}", test1.dim());
-    println!("{:?}", test2.dim().0);
+    let test_dims: [usize; 2] = [2, 4];
+    let test_range: [f32; 2] = [-1.0, 1.0];
+    let test_activation = Activation::RELU;
+
+    let test_layer = Layer::new_random(test_dims, test_range, test_activation, &mut rng).unwrap();
+    println!("Biases: {:?}", test_layer.biases);
+    println!("Weights: {:?}", test_layer.weights);
 }

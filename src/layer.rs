@@ -1,3 +1,4 @@
+use rand::Rng;
 use ndarray::{Array1, Array2};
 use rand::distr::{Distribution, Uniform};
 
@@ -18,7 +19,7 @@ pub struct LayerOutput {
 
 pub struct Layer {
     pub weights: Array2<f32>,
-    biases: Array1<f32>,
+    pub biases: Array1<f32>,
     activation: Activation,
 }
 
@@ -46,7 +47,8 @@ impl Layer {
     pub fn new_random(
         dims: [usize; 2],
         value_range: [f32; 2],
-        activation: Activation
+        activation: Activation,
+        rng: &mut impl Rng,
     ) -> Result<Self, LayerError> {
         // Validate the random range
         if value_range[1] < value_range[0] {
@@ -55,11 +57,9 @@ impl Layer {
             ));
         }
 
-        let mut rng = rand::rng();
         let dist = Uniform::new(value_range[0], value_range[1]).unwrap();
-
-        let biases = Array1::from_shape_simple_fn(dims[0], || dist.sample(&mut rng));
-        let weights = Array2::from_shape_simple_fn((dims[0], dims[1]), || dist.sample(&mut rng));
+        let biases = Array1::from_shape_simple_fn(dims[0], || dist.sample(rng));
+        let weights = Array2::from_shape_simple_fn((dims[0], dims[1]), || dist.sample(rng));
         
         Ok(Layer {
             weights,
@@ -89,6 +89,8 @@ impl Layer {
 mod tests {
     use super::*;
     use ndarray::array;
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
 
     #[test]
     fn test_layer_new_valid_args() {
@@ -112,33 +114,63 @@ mod tests {
 
     #[test]
     fn test_layer_new_random_valid_args() {
+        let seed: u64 = 48;
+        let mut rng = StdRng::seed_from_u64(seed);
+
         let test_dims: [usize; 2] = [3, 4];
         let test_range: [f32; 2] = [-1.0, 1.0];
         let test_activation = Activation::RELU;
 
-        let result = Layer::new_random(test_dims, test_range, test_activation);
+        let result = Layer::new_random(test_dims, test_range, test_activation, &mut rng);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_layer_new_random_invalid_args() {
+        let seed: u64 = 48;
+        let mut rng = StdRng::seed_from_u64(seed);
+
         let test_dims: [usize; 2] = [2, 3];
         let test_range: [f32; 2] = [3.0, 1.0];
         let test_activation = Activation::RELU;
 
-        let result = Layer::new_random(test_dims, test_range, test_activation);
+        let result = Layer::new_random(test_dims, test_range, test_activation, &mut rng);
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_layer_new_random() {
+    fn test_layer_new_random_dims() {
+        let seed: u64 = 48;
+        let mut rng = StdRng::seed_from_u64(seed);
+
         let test_dims: [usize; 2] = [2, 4];
         let test_range: [f32; 2] = [-1.0, 1.0];
         let test_activation = Activation::RELU;
 
-        let test_layer = Layer::new_random(test_dims, test_range, test_activation).unwrap();
+        let test_layer = Layer::new_random(test_dims, test_range, test_activation, &mut rng).unwrap();
         assert_eq!(test_layer.weights.dim().0, test_dims[0]);
         assert_eq!(test_layer.weights.dim().1, test_dims[1]);
+    }
+
+    #[test]
+    fn test_layer_new_random_forward_pass() {
+        let seed: u64 = 48;
+        let mut rng = StdRng::seed_from_u64(seed);
+
+        let test_dims: [usize; 2] = [2, 4];
+        let test_range: [f32; 2] = [-1.0, 1.0];
+        let test_activation = Activation::RELU;
+        let test_layer = Layer::new_random(test_dims, test_range, test_activation, &mut rng).unwrap();
+    
+        // With seed = 48
+        // biases = [-0.12484574 -0.38281488]
+        // weights = [[-0.821337, -0.24388695, 0.35480237, 0.9600971],
+        //              [0.41448832, 0.29030514, 0.68937206, -0.30939674]]
+    
+        let test_input: Array1<f32> = array![1.0, 0.0, 0.0, 0.0];
+        let expected_output: Array1<f32> = array![0.0, 0.03167343];
+        let test_result = test_layer.forward_pass(&test_input).unwrap();
+        assert_eq!(expected_output, test_result.post_activation);
     }
 
     #[test]
