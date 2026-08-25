@@ -8,7 +8,7 @@ use crate::activation::Activation;
 #[derive(Debug)]
 pub enum LayerError {
     InvalidArgDimensions(String),
-    InvalidRandRange(String),
+    InvalidRand(String),
 }
 
 #[derive(Debug, PartialEq)]
@@ -52,12 +52,13 @@ impl Layer {
     ) -> Result<Self, LayerError> {
         // Validate the random range
         if value_range[1] < value_range[0] {
-            return Err(LayerError::InvalidRandRange(
+            return Err(LayerError::InvalidRand(
                 "Value range must be of form [lower, upper] with lower < upper".to_string()
             ));
         }
 
-        let dist = Uniform::new(value_range[0], value_range[1]).unwrap();
+        let dist = Uniform::new(value_range[0], value_range[1])
+            .map_err(|e| LayerError::InvalidRand(e.to_string()))?;
         let biases = Array1::from_shape_simple_fn(dims[0], || dist.sample(rng));
         let weights = Array2::from_shape_simple_fn((dims[0], dims[1]), || dist.sample(rng));
         
