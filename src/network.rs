@@ -115,7 +115,7 @@ mod tests {
 
         let test_weights12: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0], [0.5, 0.5], [0.5, -0.5]];
         let test_biases12: Array1<f32> = array![0.0, 0.0, 0.0, 0.0];
-        let test_activation12 = Activation::RELU;
+        let test_activation12 = Activation::IDENTITY;
         let test_layer12 = Layer::new(test_weights12, test_biases12, test_activation12).unwrap();
 
         let test_layers1: Vec<Layer> = vec![test_layer11, test_layer12];
