@@ -49,7 +49,7 @@ impl Network {
         }
         Ok(NetworkOutput {
             cache,
-            output: layer_input,
+            output: layer_input,    // this is the activated output of the last layer
         })
     }
 }
