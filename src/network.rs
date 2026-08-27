@@ -1,6 +1,6 @@
 use ndarray::Array1;
 
-use crate::cache::{Entry, ForwardCache};
+use crate::cache::{ForwardEntry, ForwardCache};
 use crate::layer::{Layer, LayerError, LayerOutput};
 
 #[derive(Debug)]
@@ -41,7 +41,7 @@ impl Network {
 
         for layer in &self.layers {
             layer_output = layer.forward_pass(&layer_input)?; // match to prop error type?
-            cache.entries.push(Entry {
+            cache.entries.push(ForwardEntry {
                 input: layer_input.clone(),
                 pre_activation: layer_output.pre_activation,
             });
