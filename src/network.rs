@@ -124,7 +124,6 @@ impl Network {
         epochs: usize,
         optimizer: &Optimizer,
         objective: &Objective,
-        learning_rate: f32,
         data: &[(Array1<f32>, Array1<f32>)], // maybe better as custom type?
     ) -> Result<(), NetworkError> {
         for _ in 0..epochs {
@@ -135,7 +134,7 @@ impl Network {
                 let gradient_objective = objective.gradient(&network_out.output, &item.1)?;
                 let network_back_prop: BackwardCache =
                     self.backward_pass(&network_out, &gradient_objective);
-                optimizer.update(learning_rate, &network_back_prop, &mut self.layers);
+                optimizer.update(&network_back_prop, &mut self.layers);
             }
         }
         Ok(())
@@ -395,8 +394,8 @@ mod tests {
         let test_back_prop: BackwardCache =
             test_network.backward_pass(&test_output, &test_objective_gradient);
 
-        let test_optimizer = Optimizer::SGD_SINGLE;
         let test_learning_rate: f32 = 0.01;
+        let test_optimizer = Optimizer::SGD_SINGLE { learning_rate: test_learning_rate };
 
         let test_pre_update_objective: f32 = test_objective
             .compute(&test_output.output, &test_target)
@@ -404,7 +403,6 @@ mod tests {
 
         // Update parameters
         test_optimizer.update(
-            test_learning_rate,
             &test_back_prop,
             &mut test_network.layers,
         );

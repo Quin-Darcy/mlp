@@ -2,13 +2,13 @@ use crate::cache::BackwardCache;
 use crate::layer::Layer;
 
 pub enum Optimizer {
-    SGD_SINGLE, // stochastic gradient descent for single input
+    SGD_SINGLE { learning_rate: f32 }, // stochastic gradient descent for single input
 }
 
 impl Optimizer {
-    pub fn update(&self, learning_rate: f32, cache: &BackwardCache, layers: &mut [Layer]) {
+    pub fn update(&self, cache: &BackwardCache, layers: &mut [Layer]) {
         match self {
-            Self::SGD_SINGLE => {
+            Self::SGD_SINGLE { learning_rate } => {
                 for (layer, entry) in layers.iter_mut().zip(cache.entries.iter()) {
                     layer
                         .weights
