@@ -88,6 +88,11 @@ impl Network {
         // TODO: Add more intuition and better naming
         let mut carryover: Array1<f32> = objective_gradient.clone();
 
+        // The three primary objects updated each layer
+        let mut delta: Array1<f32>;
+        let mut weight_gradient: Array2<f32>;
+        let mut bias_gradient: Array1<f32>;
+
         // main back prop loop
         for (layer, forward_cache_entry) in self
             .layers
@@ -95,15 +100,16 @@ impl Network {
             .rev()
             .zip(network_output.cache.entries.iter().rev())
         {
-            let delta: Array1<f32> = layer
+            delta = layer
                 .activation
                 .jacobian(&forward_cache_entry.pre_activation)
                 * carryover;
-            let weight_gradient: Array2<f32> = outer_product(&delta, &forward_cache_entry.input);
+            weight_gradient = outer_product(&delta, &forward_cache_entry.input);
+            bias_gradient = delta.clone();
 
             backward_cache.entries.push(BackwardEntry {
+                bias_gradient,
                 weight_gradient,
-                bias_gradient: delta.clone(),
             });
 
             carryover = delta.dot(&layer.weights);
