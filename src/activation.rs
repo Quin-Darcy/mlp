@@ -14,6 +14,7 @@ impl Activation {
         }
     }
 
+    #[must_use] 
     pub fn jacobian(&self, pre_activation: &Array1<f32>) -> Array1<f32> {
         /* RELU and the IDENTITY act component wise and so the jacobian
          * is always a diagnonal matrix. That is why we only return a row
