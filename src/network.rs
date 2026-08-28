@@ -77,7 +77,7 @@ impl Network {
     ) -> BackwardCache {
         // This cache will hold the weight and bias gradients
         // accumulated through the back prop
-        let mut cache = BackwardCache::new();
+        let mut backward_cache = BackwardCache::new();
 
         // This is the intermediate value which gets carried backwards
         // from one layer to the next. For the last layer (first in
@@ -88,25 +88,29 @@ impl Network {
         // TODO: Add more intuition and better naming
         let mut carryover: Array1<f32> = objective_gradient.clone();
 
-        let num_layers: usize = self.layers.len();
-        for i in (0..num_layers).rev() {
-            let delta: Array1<f32> = self.layers[i]
+        // main back prop loop
+        for (layer, forward_cache_entry) in self
+            .layers
+            .iter()
+            .rev()
+            .zip(network_output.cache.entries.iter().rev())
+        {
+            let delta: Array1<f32> = layer
                 .activation
-                .jacobian(&network_output.cache.entries[i].pre_activation)
+                .jacobian(&forward_cache_entry.pre_activation)
                 * carryover;
-            let activation: Array1<f32> = network_output.cache.entries[i].input.clone();
-            let weight_gradient: Array2<f32> = outer_product(&delta, &activation);
+            let weight_gradient: Array2<f32> = outer_product(&delta, &forward_cache_entry.input);
 
-            cache.entries.push(BackwardEntry {
+            backward_cache.entries.push(BackwardEntry {
                 weight_gradient,
                 bias_gradient: delta.clone(),
             });
 
-            carryover = delta.dot(&self.layers[i].weights);
+            carryover = delta.dot(&layer.weights);
         }
 
-        cache.entries.reverse();
-        cache
+        backward_cache.entries.reverse();
+        backward_cache
     }
 
     pub fn train(
