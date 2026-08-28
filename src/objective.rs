@@ -1,6 +1,5 @@
 use ndarray::Array1;
 
-
 #[derive(Debug)]
 pub enum ObjectiveError {
     InvalidArgDimensions(String),
@@ -11,10 +10,14 @@ pub enum Objective {
 }
 
 impl Objective {
-    pub fn compute(&self, input: &Array1<f32>, target: &Array1<f32>) -> Result<f32, ObjectiveError> {
+    pub fn compute(
+        &self,
+        input: &Array1<f32>,
+        target: &Array1<f32>,
+    ) -> Result<f32, ObjectiveError> {
         if input.dim() != target.dim() {
             return Err(ObjectiveError::InvalidArgDimensions(
-                "input and target vectors must be the same length".to_string()
+                "input and target vectors must be the same length".to_string(),
             ));
         }
 
@@ -26,10 +29,14 @@ impl Objective {
         }
     }
 
-    pub fn gradient(&self, input: &Array1<f32>, target: &Array1<f32>) -> Result<Array1<f32>, ObjectiveError> {
+    pub fn gradient(
+        &self,
+        input: &Array1<f32>,
+        target: &Array1<f32>,
+    ) -> Result<Array1<f32>, ObjectiveError> {
         if input.dim() != target.dim() {
             return Err(ObjectiveError::InvalidArgDimensions(
-                "input and target vectors must be the same length".to_string()
+                "input and target vectors must be the same length".to_string(),
             ));
         }
 
@@ -40,7 +47,7 @@ impl Objective {
                 Ok(scalar * diff)
             }
         }
-    } 
+    }
 }
 
 #[cfg(test)]
@@ -109,5 +116,4 @@ mod tests {
 
         assert_eq!(test_expected_value, test_value);
     }
-
 }

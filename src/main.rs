@@ -1,9 +1,8 @@
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 
-use mlp::layer::Layer;
 use mlp::activation::Activation;
-
+use mlp::layer::Layer;
 
 fn main() {
     let seed: u64 = 48;

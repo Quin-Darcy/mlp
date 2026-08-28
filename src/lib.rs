@@ -6,3 +6,4 @@ pub mod activation;
 pub mod cache;
 pub mod layer;
 pub mod network;
+pub mod objective;

@@ -1,4 +1,4 @@
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 
 pub enum Activation {
     RELU,
@@ -17,7 +17,7 @@ impl Activation {
     pub fn jacobian(&self, pre_activation: &Array1<f32>) -> Array1<f32> {
         /* RELU and the IDENTITY act component wise and so the jacobian
          * is always a diagnonal matrix. That is why we only return a row
-         * vector and we will replace the matrix multiplication with a 
+         * vector and we will replace the matrix multiplication with a
          * Hadamard product to get the same result, just more efficiently
          */
         let dim: usize = pre_activation.dim();
@@ -30,7 +30,7 @@ impl Activation {
                         jacobian[i] = 0.0;
                     }
                 }
-            },
+            }
             Self::IDENTITY => {}
         }
         jacobian
@@ -73,7 +73,10 @@ mod tests {
         let test_pre_activation: Array1<f32> = array![2.0, -1.0, -0.1, 0.1, 0.0];
         let test_expected_result: Array1<f32> = array![1.0, 0.0, 0.0, 1.0, 1.0];
 
-        assert_eq!(test_activation.jacobian(&test_pre_activation), test_expected_result);
+        assert_eq!(
+            test_activation.jacobian(&test_pre_activation),
+            test_expected_result
+        );
     }
 
     #[test]
@@ -83,6 +86,9 @@ mod tests {
         let test_pre_activation: Array1<f32> = array![2.0, -1.0, -0.1, 0.1, 0.0];
         let test_expected_result: Array1<f32> = array![1.0, 1.0, 1.0, 1.0, 1.0];
 
-        assert_eq!(test_activation.jacobian(&test_pre_activation), test_expected_result);
+        assert_eq!(
+            test_activation.jacobian(&test_pre_activation),
+            test_expected_result
+        );
     }
 }

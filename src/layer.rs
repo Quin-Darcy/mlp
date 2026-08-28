@@ -1,9 +1,8 @@
-use rand::Rng;
 use ndarray::{Array1, Array2};
+use rand::Rng;
 use rand::distr::{Distribution, Uniform};
 
 use crate::activation::Activation;
-
 
 #[derive(Debug)]
 pub enum LayerError {
@@ -20,7 +19,7 @@ pub struct LayerOutput {
 pub struct Layer {
     pub weights: Array2<f32>,
     pub biases: Array1<f32>,
-    activation: Activation,
+    pub activation: Activation,
 }
 
 impl Layer {
@@ -53,7 +52,7 @@ impl Layer {
         // Validate the random range
         if value_range[1] < value_range[0] {
             return Err(LayerError::InvalidRand(
-                "Value range must be of form [lower, upper] with lower < upper".to_string()
+                "Value range must be of form [lower, upper] with lower < upper".to_string(),
             ));
         }
 
@@ -61,11 +60,11 @@ impl Layer {
             .map_err(|e| LayerError::InvalidRand(e.to_string()))?;
         let biases = Array1::from_shape_simple_fn(dims[0], || dist.sample(rng));
         let weights = Array2::from_shape_simple_fn((dims[0], dims[1]), || dist.sample(rng));
-        
+
         Ok(Layer {
             weights,
             biases,
-            activation
+            activation,
         })
     }
 
@@ -148,7 +147,8 @@ mod tests {
         let test_range: [f32; 2] = [-1.0, 1.0];
         let test_activation = Activation::RELU;
 
-        let test_layer = Layer::new_random(test_dims, test_range, test_activation, &mut rng).unwrap();
+        let test_layer =
+            Layer::new_random(test_dims, test_range, test_activation, &mut rng).unwrap();
         assert_eq!(test_layer.weights.dim().0, test_dims[0]);
         assert_eq!(test_layer.weights.dim().1, test_dims[1]);
     }
@@ -161,13 +161,14 @@ mod tests {
         let test_dims: [usize; 2] = [2, 4];
         let test_range: [f32; 2] = [-1.0, 1.0];
         let test_activation = Activation::RELU;
-        let test_layer = Layer::new_random(test_dims, test_range, test_activation, &mut rng).unwrap();
-    
+        let test_layer =
+            Layer::new_random(test_dims, test_range, test_activation, &mut rng).unwrap();
+
         // With seed = 48
         // biases = [-0.12484574 -0.38281488]
         // weights = [[-0.821337, -0.24388695, 0.35480237, 0.9600971],
         //              [0.41448832, 0.29030514, 0.68937206, -0.30939674]]
-    
+
         let test_input: Array1<f32> = array![1.0, 0.0, 0.0, 0.0];
         let expected_output: Array1<f32> = array![0.0, 0.03167343];
         let test_result = test_layer.forward_pass(&test_input).unwrap();

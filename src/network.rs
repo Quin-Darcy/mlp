@@ -1,6 +1,6 @@
-use ndarray::Array1;
+use ndarray::{Array1, Array2, Axis};
 
-use crate::cache::{ForwardEntry, ForwardCache};
+use crate::cache::{BackwardCache, BackwardEntry, ForwardCache, ForwardEntry};
 use crate::layer::{Layer, LayerError, LayerOutput};
 
 #[derive(Debug)]
@@ -49,8 +49,39 @@ impl Network {
         }
         Ok(NetworkOutput {
             cache,
-            output: layer_input,    // this is the activated output of the last layer
+            output: layer_input, // this is the activated output of the last layer
         })
+    }
+
+    #[must_use]
+    pub fn backward_pass(
+        &self,
+        network_output: &NetworkOutput,
+        objective_gradient: &Array1<f32>,
+    ) -> BackwardCache {
+        let mut cache = BackwardCache::new();
+        let mut carryover: Array1<f32> = objective_gradient.clone();
+
+        let num_layers: usize = self.layers.len();
+        for i in (0..num_layers).rev() {
+            let delta: Array1<f32> = self.layers[i]
+                .activation
+                .jacobian(&network_output.cache.entries[i].pre_activation)
+                * carryover;
+            let activation: Array1<f32> = network_output.cache.entries[i].input.clone();
+            let weight_gradient: Array2<f32> =
+                &delta.view().insert_axis(Axis(1)) * &activation.view().insert_axis(Axis(0));
+
+            cache.entries.push(BackwardEntry {
+                weight_gradient,
+                bias_gradient: delta.clone(),
+            });
+
+            carryover = delta.dot(&self.layers[i].weights);
+        }
+
+        cache.entries.reverse();
+        cache
     }
 }
 
