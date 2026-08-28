@@ -6,7 +6,9 @@
 
 pub mod activation;
 pub mod cache;
+pub mod data_set;
 pub mod layer;
 pub mod network;
 pub mod objective;
-pub mod optimizer;
+pub mod updater;
+pub mod trainer;

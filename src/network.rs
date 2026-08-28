@@ -3,7 +3,7 @@ use ndarray::{Array1, Array2};
 use crate::cache::{BackwardCache, BackwardEntry, ForwardCache, ForwardEntry};
 use crate::layer::{Layer, LayerError, LayerOutput};
 use crate::objective::{Objective, ObjectiveError};
-use crate::optimizer::Optimizer;
+use crate::updater::Updater;
 
 #[derive(Debug)]
 pub enum NetworkError {
@@ -122,7 +122,7 @@ impl Network {
     pub fn train(
         &mut self,
         epochs: usize,
-        optimizer: &Optimizer,
+        updater: &Updater,
         objective: &Objective,
         data: &[(Array1<f32>, Array1<f32>)], // maybe better as custom type?
     ) -> Result<(), NetworkError> {
@@ -134,7 +134,7 @@ impl Network {
                 let gradient_objective = objective.gradient(&network_out.output, &item.1)?;
                 let network_back_prop: BackwardCache =
                     self.backward_pass(&network_out, &gradient_objective);
-                optimizer.update(&network_back_prop, &mut self.layers);
+                updater.update(&network_back_prop, &mut self.layers);
             }
         }
         Ok(())
@@ -363,7 +363,7 @@ mod tests {
     }
 
     #[test]
-    fn test_network_backward_pass_optimize() {
+    fn test_network_backward_pass_update() {
         let test_weights1: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
         let test_biases1: Array1<f32> = array![0.5, 0.5, 0.5];
         let test_activation1 = Activation::RELU;
@@ -395,17 +395,16 @@ mod tests {
             test_network.backward_pass(&test_output, &test_objective_gradient);
 
         let test_learning_rate: f32 = 0.01;
-        let test_optimizer = Optimizer::SGD_SINGLE { learning_rate: test_learning_rate };
+        let test_updater = Updater::SGD_SINGLE {
+            learning_rate: test_learning_rate,
+        };
 
         let test_pre_update_objective: f32 = test_objective
             .compute(&test_output.output, &test_target)
             .unwrap();
 
         // Update parameters
-        test_optimizer.update(
-            &test_back_prop,
-            &mut test_network.layers,
-        );
+        test_updater.update(&test_back_prop, &mut test_network.layers);
 
         let test_post_update_output: NetworkOutput =
             test_network.forward_pass(&test_input).unwrap();

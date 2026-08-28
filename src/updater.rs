@@ -1,11 +1,11 @@
 use crate::cache::BackwardCache;
 use crate::layer::Layer;
 
-pub enum Optimizer {
+pub enum Updater {
     SGD_SINGLE { learning_rate: f32 }, // stochastic gradient descent for single input
 }
 
-impl Optimizer {
+impl Updater {
     pub fn update(&self, cache: &BackwardCache, layers: &mut [Layer]) {
         match self {
             Self::SGD_SINGLE { learning_rate } => {
@@ -32,7 +32,7 @@ mod tests {
     const EPSILON: f32 = 0.0001;
 
     #[test]
-    fn test_optimizer_sgd_single_update() {
+    fn test_updater_sgd_single_update() {
         let test_weights1: Array2<f32> = array![[1.0, 2.0], [3.0, 4.0]];
         let test_biases1: Array1<f32> = array![0.5, -0.5];
         let test_activation1 = Activation::RELU;
@@ -59,10 +59,10 @@ mod tests {
         };
 
         let test_learning_rate: f32 = 0.1;
-        let test_optimizer = Optimizer::SGD_SINGLE {
+        let test_updater = Updater::SGD_SINGLE {
             learning_rate: test_learning_rate,
         };
-        test_optimizer.update(&test_cache, &mut test_layers);
+        test_updater.update(&test_cache, &mut test_layers);
 
         // Each parameter moves by -learning_rate * gradient
         let test_expected_weights1: Array2<f32> = array![[0.9, 2.1], [2.8, 4.0]];
