@@ -2,8 +2,8 @@ use ndarray::Array1;
 
 #[derive(Default)]
 pub struct DataSet {
-    samples: Vec<Array1<f32>>,
-    labels: Vec<Array1<f32>>,
+    pub samples: Vec<Array1<f32>>,
+    pub labels: Vec<Array1<f32>>,
 }
 
 impl DataSet {
