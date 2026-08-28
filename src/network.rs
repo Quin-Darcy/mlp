@@ -122,7 +122,7 @@ impl Network {
     pub fn train(
         &mut self,
         epochs: usize,
-        updater: &Updater,
+        updater: &mut Updater,
         objective: &Objective,
         data: &[(Array1<f32>, Array1<f32>)], // maybe better as custom type?
     ) -> Result<(), NetworkError> {

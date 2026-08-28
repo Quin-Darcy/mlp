@@ -1,23 +1,28 @@
 use crate::cache::BackwardCache;
 use crate::layer::Layer;
 
+
+pub struct UpdaterState { /* TBD */ }
+
 pub enum Updater {
     SGD_SINGLE { learning_rate: f32 }, // stochastic gradient descent for single input
+    TBD { learning_rate: f32, state: UpdaterState },
 }
 
 impl Updater {
-    pub fn update(&self, cache: &BackwardCache, layers: &mut [Layer]) {
+    pub fn update(&mut self, cache: &BackwardCache, layers: &mut [Layer]) {
         match self {
             Self::SGD_SINGLE { learning_rate } => {
                 for (layer, entry) in layers.iter_mut().zip(cache.entries.iter()) {
                     layer
                         .weights
-                        .scaled_add(-learning_rate, &entry.weight_gradient);
+                        .scaled_add(-*learning_rate, &entry.weight_gradient);
                     layer
                         .biases
-                        .scaled_add(-learning_rate, &entry.bias_gradient);
+                        .scaled_add(-*learning_rate, &entry.bias_gradient);
                 }
-            }
+            },
+            Self::TBD { learning_rate, state } => {}
         }
     }
 }
