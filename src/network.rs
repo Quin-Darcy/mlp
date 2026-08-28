@@ -1,8 +1,8 @@
-use ndarray::{Array1, Array2, Axis};
+use ndarray::{Array1, Array2};
 
 use crate::cache::{BackwardCache, BackwardEntry, ForwardCache, ForwardEntry};
 use crate::layer::{Layer, LayerError, LayerOutput};
-use crate::objective::{ObjectiveError, Objective};
+use crate::objective::{Objective, ObjectiveError};
 use crate::optimizer::Optimizer;
 
 #[derive(Debug)]
@@ -14,13 +14,13 @@ pub enum NetworkError {
 
 impl From<LayerError> for NetworkError {
     fn from(e: LayerError) -> Self {
-        NetworkError::BadForwardPass(format!("{:?}", e))
+        NetworkError::BadForwardPass(format!("{e:?}"))
     }
 }
 
 impl From<ObjectiveError> for NetworkError {
     fn from(e: ObjectiveError) -> Self {
-        NetworkError::BadObjectiveGradient(format!("{:?}", e))
+        NetworkError::BadObjectiveGradient(format!("{e:?}"))
     }
 }
 
@@ -56,7 +56,7 @@ impl Network {
         let mut cache = ForwardCache::new();
 
         for layer in &self.layers {
-            layer_output = layer.forward_pass(&layer_input)?; // match to prop error type?
+            layer_output = layer.forward_pass(&layer_input)?;
             cache.entries.push(ForwardEntry {
                 input: layer_input.clone(),
                 pre_activation: layer_output.pre_activation,
@@ -75,7 +75,17 @@ impl Network {
         network_output: &NetworkOutput,
         objective_gradient: &Array1<f32>,
     ) -> BackwardCache {
+        // This cache will hold the weight and bias gradients
+        // accumulated through the back prop
         let mut cache = BackwardCache::new();
+
+        // This is the intermediate value which gets carried backwards
+        // from one layer to the next. For the last layer (first in
+        // back prop), it holds the gradient of the objective function.
+        // For all subsequent layers, it holds the product of the error
+        // term (delta) and the current layer's weight matrix
+        //
+        // TODO: Add more intuition and better naming
         let mut carryover: Array1<f32> = objective_gradient.clone();
 
         let num_layers: usize = self.layers.len();
@@ -85,8 +95,7 @@ impl Network {
                 .jacobian(&network_output.cache.entries[i].pre_activation)
                 * carryover;
             let activation: Array1<f32> = network_output.cache.entries[i].input.clone();
-            let weight_gradient: Array2<f32> =
-                &delta.view().insert_axis(Axis(1)) * &activation.view().insert_axis(Axis(0));
+            let weight_gradient: Array2<f32> = outer_product(&delta, &activation);
 
             cache.entries.push(BackwardEntry {
                 weight_gradient,
@@ -106,20 +115,25 @@ impl Network {
         optimizer: &Optimizer,
         objective: &Objective,
         learning_rate: f32,
-        data: Vec<(Array1<f32>, Array1<f32>)>   // maybe better as custom type?
+        data: &[(Array1<f32>, Array1<f32>)], // maybe better as custom type?
     ) -> Result<(), NetworkError> {
         for _ in 0..epochs {
-            // below seems hardcoded to singleton sgd. need to revise to allow 
+            // below seems hardcoded to singleton sgd. need to revise to allow
             // for batching depending on optimizer choice
-            for i in 0..data.len() {
-                let network_out: NetworkOutput = self.forward_pass(&data[i].0)?;
-                let gradient_objective = objective.gradient(&network_out.output, &data[i].1)?;
-                let network_back_prop: BackwardCache = self.backward_pass(&network_out, &gradient_objective);
+            for item in data {
+                let network_out: NetworkOutput = self.forward_pass(&item.0)?;
+                let gradient_objective = objective.gradient(&network_out.output, &item.1)?;
+                let network_back_prop: BackwardCache =
+                    self.backward_pass(&network_out, &gradient_objective);
                 optimizer.update(learning_rate, &network_back_prop, &mut self.layers);
             }
         }
         Ok(())
     }
+}
+
+fn outer_product(delta: &Array1<f32>, input: &Array1<f32>) -> Array2<f32> {
+    Array2::from_shape_fn((delta.dim(), input.dim()), |(i, j)| delta[i] * input[j])
 }
 
 #[cfg(test)]
@@ -392,5 +406,19 @@ mod tests {
             .unwrap();
 
         assert!(test_post_update_objective < test_pre_update_objective);
+    }
+
+    #[test]
+    fn test_network_util_outer_product() {
+        let test_vec1: Array1<f32> = array![-1.8, -2.6];
+        let test_vec2: Array1<f32> = array![1.0, 2.0];
+        let test_expected: Array2<f32> = array![[-1.8, -3.6], [-2.6, -5.2]];
+        let test_result: Array2<f32> = outer_product(&test_vec1, &test_vec2);
+
+        assert!(
+            (&test_result - &test_expected)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
     }
 }
