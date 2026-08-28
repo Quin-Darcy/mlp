@@ -2,6 +2,8 @@ use ndarray::{Array1, Array2, Axis};
 
 use crate::cache::{BackwardCache, BackwardEntry, ForwardCache, ForwardEntry};
 use crate::layer::{Layer, LayerError, LayerOutput};
+use crate::objective::Objective;
+use crate::optimizer::Optimizer;
 
 #[derive(Debug)]
 pub enum NetworkError {
@@ -83,14 +85,33 @@ impl Network {
         cache.entries.reverse();
         cache
     }
+
+    pub fn train(
+        &mut self,
+        epochs: usize,
+        optimizer: Optimizer,
+        objective: Objective,
+        learning_rate: f32,
+        data: Vec<(Array1<f32>, Array1<f32>)>   // maybe better as custom type?
+    ) -> Result<(), NetworkError> {
+        for _ in 0..epochs {
+            // below seems hardcoded to singleton sgd. need to revise to allow 
+            // for batching depending on optimizer choice
+            for i in 0..data.len() {
+                let network_out: NetworkOutput = self.forward_pass(&data[i].0).unwrap();
+                let gradient_objective = objective.gradient(&network_out.output, &data[i].1).unwrap();
+                let network_back_prop: BackwardCache = self.backward_pass(&network_out, &gradient_objective);
+                optimizer.update(learning_rate, &network_back_prop, &mut self.layers);
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::activation::Activation;
-    use crate::objective::Objective;
-    use crate::optimizer::Optimizer;
     use ndarray::{Array2, array};
 
     const EPSILON: f32 = 0.0001;
