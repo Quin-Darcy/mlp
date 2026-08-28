@@ -2,12 +2,26 @@ use ndarray::{Array1, Array2, Axis};
 
 use crate::cache::{BackwardCache, BackwardEntry, ForwardCache, ForwardEntry};
 use crate::layer::{Layer, LayerError, LayerOutput};
-use crate::objective::Objective;
+use crate::objective::{ObjectiveError, Objective};
 use crate::optimizer::Optimizer;
 
 #[derive(Debug)]
 pub enum NetworkError {
     InvalidArgDimensions(String),
+    BadForwardPass(String),
+    BadObjectiveGradient(String),
+}
+
+impl From<LayerError> for NetworkError {
+    fn from(e: LayerError) -> Self {
+        NetworkError::BadForwardPass(format!("{:?}", e))
+    }
+}
+
+impl From<ObjectiveError> for NetworkError {
+    fn from(e: ObjectiveError) -> Self {
+        NetworkError::BadObjectiveGradient(format!("{:?}", e))
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -36,7 +50,7 @@ impl Network {
     }
 
     #[must_use]
-    pub fn forward_pass(&self, input: &Array1<f32>) -> Result<NetworkOutput, LayerError> {
+    pub fn forward_pass(&self, input: &Array1<f32>) -> Result<NetworkOutput, NetworkError> {
         let mut layer_input: Array1<f32> = input.clone();
         let mut layer_output: LayerOutput;
         let mut cache = ForwardCache::new();
@@ -89,8 +103,8 @@ impl Network {
     pub fn train(
         &mut self,
         epochs: usize,
-        optimizer: Optimizer,
-        objective: Objective,
+        optimizer: &Optimizer,
+        objective: &Objective,
         learning_rate: f32,
         data: Vec<(Array1<f32>, Array1<f32>)>   // maybe better as custom type?
     ) -> Result<(), NetworkError> {
@@ -98,8 +112,8 @@ impl Network {
             // below seems hardcoded to singleton sgd. need to revise to allow 
             // for batching depending on optimizer choice
             for i in 0..data.len() {
-                let network_out: NetworkOutput = self.forward_pass(&data[i].0).unwrap();
-                let gradient_objective = objective.gradient(&network_out.output, &data[i].1).unwrap();
+                let network_out: NetworkOutput = self.forward_pass(&data[i].0)?;
+                let gradient_objective = objective.gradient(&network_out.output, &data[i].1)?;
                 let network_back_prop: BackwardCache = self.backward_pass(&network_out, &gradient_objective);
                 optimizer.update(learning_rate, &network_back_prop, &mut self.layers);
             }
