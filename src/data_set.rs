@@ -12,3 +12,5 @@ impl DataSet {
         Self::default()
     }
 }
+
+// TODO: add error type and validate samples and labels are same size
