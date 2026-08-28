@@ -14,7 +14,7 @@ impl Activation {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn jacobian(&self, pre_activation: &Array1<f32>) -> Array1<f32> {
         /* RELU and the IDENTITY act component wise and so the jacobian
          * is always a diagnonal matrix. That is why we only return a row
@@ -43,6 +43,8 @@ mod tests {
     use super::*;
     use ndarray::array;
 
+    const EPSILON: f32 = 0.0001;
+
     // Add new test for each new activation function added
 
     #[test]
@@ -51,11 +53,19 @@ mod tests {
 
         let test_input1: Array1<f32> = array![1.0, 0.0];
         let test_expected1: Array1<f32> = array![1.0, 0.0];
-        assert_eq!(test_activation.apply(&test_input1), test_expected1);
+        assert!(
+            (&test_activation.apply(&test_input1) - &test_expected1)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
 
         let test_input2: Array1<f32> = array![-1.0, 0.0];
         let test_expected2: Array1<f32> = array![0.0, 0.0];
-        assert_eq!(test_activation.apply(&test_input2), test_expected2);
+        assert!(
+            (&test_activation.apply(&test_input2) - &test_expected2)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
     }
 
     #[test]
@@ -64,7 +74,11 @@ mod tests {
 
         let test_input: Array1<f32> = array![23.4, 0.5, -9.9];
         let test_expected: Array1<f32> = test_input.clone();
-        assert_eq!(test_activation.apply(&test_input), test_expected);
+        assert!(
+            (&test_activation.apply(&test_input) - &test_expected)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
     }
 
     #[test]
@@ -74,9 +88,10 @@ mod tests {
         let test_pre_activation: Array1<f32> = array![2.0, -1.0, -0.1, 0.1, 0.0];
         let test_expected_result: Array1<f32> = array![1.0, 0.0, 0.0, 1.0, 1.0];
 
-        assert_eq!(
-            test_activation.jacobian(&test_pre_activation),
-            test_expected_result
+        assert!(
+            (&test_activation.jacobian(&test_pre_activation) - &test_expected_result)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
         );
     }
 
@@ -87,9 +102,10 @@ mod tests {
         let test_pre_activation: Array1<f32> = array![2.0, -1.0, -0.1, 0.1, 0.0];
         let test_expected_result: Array1<f32> = array![1.0, 1.0, 1.0, 1.0, 1.0];
 
-        assert_eq!(
-            test_activation.jacobian(&test_pre_activation),
-            test_expected_result
+        assert!(
+            (&test_activation.jacobian(&test_pre_activation) - &test_expected_result)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
         );
     }
 }

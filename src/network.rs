@@ -92,6 +92,8 @@ mod tests {
     use crate::objective::Objective;
     use ndarray::{Array2, array};
 
+    const EPSILON: f32 = 0.0001;
+
     #[test]
     fn test_network_valid_args() {
         let test_weights1: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
@@ -157,7 +159,11 @@ mod tests {
         let test_expected_output1: Array1<f32> = array![0.5, 0.0, 0.25, 0.25];
         let result1 = test_network1.forward_pass(&test_input1).unwrap();
 
-        assert_eq!(result1.output, test_expected_output1);
+        assert!(
+            (&result1.output - &test_expected_output1)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
 
         // Test 2
         let test_weights21: Array2<f32> = array![[1.0, 2.0], [0.0, 5.0], [1.0, 1.0]];
@@ -182,7 +188,11 @@ mod tests {
         let test_expected_output2: Array1<f32> = array![1.0, 0.0, 4.2];
         let result2 = test_network2.forward_pass(&test_input2).unwrap();
 
-        assert_eq!(result2.output, test_expected_output2);
+        assert!(
+            (&result2.output - &test_expected_output2)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
     }
 
     #[test]
@@ -201,17 +211,95 @@ mod tests {
 
         let test_target1: Array1<f32> = array![1.0, 3.0];
         let test_objective = Objective::MSE;
-        let test_objective_gradient = test_objective.gradient(&test_output1.output, &test_target1).unwrap();
+        let test_objective_gradient = test_objective
+            .gradient(&test_output1.output, &test_target1)
+            .unwrap();
 
-        let test_back_prop: BackwardCache = test_network1.backward_pass(&test_output1, &test_objective_gradient);
+        let test_back_prop: BackwardCache =
+            test_network1.backward_pass(&test_output1, &test_objective_gradient);
 
-        let test_expected_weight_gradient1: Array2<f32> = array![
-            [-0.90000004, -1.8000001], 
-            [-1.3, -2.6]
-        ];
-        let test_expected_bias_gradient1: Array1<f32> = array![-0.90000004, -1.3];
+        let test_expected_weight_gradient1: Array2<f32> = array![[-0.9, -1.8], [-1.3, -2.6]];
+        let test_expected_bias_gradient1: Array1<f32> = array![-0.9, -1.3];
 
-        assert_eq!(test_back_prop.entries[0].weight_gradient, test_expected_weight_gradient1);
-        assert_eq!(test_back_prop.entries[0].bias_gradient, test_expected_bias_gradient1);
+        assert!(
+            (&test_back_prop.entries[0].weight_gradient - &test_expected_weight_gradient1)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_back_prop.entries[0].bias_gradient - &test_expected_bias_gradient1)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+
+        // Test 2
+        let test_weights21: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
+        let test_biases21: Array1<f32> = array![0.5, 0.5, 0.5];
+        let test_activation21 = Activation::RELU;
+        let test_layer21 = Layer::new(test_weights21, test_biases21, test_activation21).unwrap();
+
+        let test_weights22: Array2<f32> = array![[1.0, 1.0, 1.0], [-1.0, 0.0, 2.0]];
+        let test_biases22: Array1<f32> = array![0.0, 0.0];
+        let test_activation22 = Activation::RELU;
+        let test_layer22 = Layer::new(test_weights22, test_biases22, test_activation22).unwrap();
+
+        let test_weights23: Array2<f32> = array![[1.0, 2.0], [0.5, -1.0]];
+        let test_biases23: Array1<f32> = array![0.0, 1.0];
+        let test_activation23 = Activation::IDENTITY;
+        let test_layer23 = Layer::new(test_weights23, test_biases23, test_activation23).unwrap();
+
+        let test_layers2: Vec<Layer> = vec![test_layer21, test_layer22, test_layer23];
+        let test_network2 = Network::new(test_layers2).unwrap();
+
+        let test_input2: Array1<f32> = array![1.0, -1.0];
+        let test_output2: NetworkOutput = test_network2.forward_pass(&test_input2).unwrap();
+
+        let test_target2: Array1<f32> = array![1.0, 0.0];
+        let test_objective_gradient2 = test_objective
+            .gradient(&test_output2.output, &test_target2)
+            .unwrap();
+
+        let test_back_prop2: BackwardCache =
+            test_network2.backward_pass(&test_output2, &test_objective_gradient2);
+
+        let test_expected_weight_gradient21: Array2<f32> =
+            array![[2.0, -2.0], [0.0, 0.0], [2.0, -2.0]];
+        let test_expected_bias_gradient21: Array1<f32> = array![2.0, 0.0, 2.0];
+        let test_expected_weight_gradient22: Array2<f32> = array![[3.0, 0.0, 1.0], [0.0, 0.0, 0.0]];
+        let test_expected_bias_gradient22: Array1<f32> = array![2.0, 0.0];
+        let test_expected_weight_gradient23: Array2<f32> = array![[2.0, 0.0], [4.0, 0.0]];
+        let test_expected_bias_gradient23: Array1<f32> = array![1.0, 2.0];
+
+        assert_eq!(test_back_prop2.entries.len(), 3);
+        assert!(
+            (&test_back_prop2.entries[0].weight_gradient - &test_expected_weight_gradient21)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_back_prop2.entries[0].bias_gradient - &test_expected_bias_gradient21)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_back_prop2.entries[1].weight_gradient - &test_expected_weight_gradient22)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_back_prop2.entries[1].bias_gradient - &test_expected_bias_gradient22)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_back_prop2.entries[2].weight_gradient - &test_expected_weight_gradient23)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_back_prop2.entries[2].bias_gradient - &test_expected_bias_gradient23)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
     }
 }

@@ -92,6 +92,8 @@ mod tests {
     use rand::SeedableRng;
     use rand::rngs::StdRng;
 
+    const EPSILON: f32 = 0.0001;
+
     #[test]
     fn test_layer_new_valid_args() {
         let test_weights: Array2<f32> = array![[1.0, 0.3, 1.4], [0.0, 1.0, 3.2]];
@@ -172,7 +174,11 @@ mod tests {
         let test_input: Array1<f32> = array![1.0, 0.0, 0.0, 0.0];
         let expected_output: Array1<f32> = array![0.0, 0.03167343];
         let test_result = test_layer.forward_pass(&test_input).unwrap();
-        assert_eq!(expected_output, test_result.post_activation);
+        assert!(
+            (&test_result.post_activation - &expected_output)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
     }
 
     #[test]
@@ -226,9 +232,16 @@ mod tests {
             pre_activation: test_expected_pre1,
             post_activation: test_expected_post1,
         };
-        assert_eq!(
-            test_layer1.forward_pass(&test_input1).unwrap(),
-            test_expected_output1
+        let test_result1 = test_layer1.forward_pass(&test_input1).unwrap();
+        assert!(
+            (&test_result1.pre_activation - &test_expected_output1.pre_activation)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_result1.post_activation - &test_expected_output1.post_activation)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
         );
 
         // Test 2
@@ -244,9 +257,16 @@ mod tests {
             pre_activation: test_expected_pre2,
             post_activation: test_expected_post2,
         };
-        assert_eq!(
-            test_layer2.forward_pass(&test_input2).unwrap(),
-            test_expected_output2
+        let test_result2 = test_layer2.forward_pass(&test_input2).unwrap();
+        assert!(
+            (&test_result2.pre_activation - &test_expected_output2.pre_activation)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_result2.post_activation - &test_expected_output2.post_activation)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
         );
 
         // Test 3
@@ -266,9 +286,16 @@ mod tests {
             pre_activation: test_expected_pre3,
             post_activation: test_expected_post3,
         };
-        assert_eq!(
-            test_layer3.forward_pass(&test_input3).unwrap(),
-            test_expected_output3
+        let test_result3 = test_layer3.forward_pass(&test_input3).unwrap();
+        assert!(
+            (&test_result3.pre_activation - &test_expected_output3.pre_activation)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_result3.post_activation - &test_expected_output3.post_activation)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
         );
     }
 }

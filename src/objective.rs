@@ -55,6 +55,8 @@ mod tests {
     use super::*;
     use ndarray::array;
 
+    const EPSILON: f32 = 0.0001;
+
     #[test]
     fn test_objective_mse_compute_valid_args() {
         let test_input: Array1<f32> = array![1.0, 0.0];
@@ -83,7 +85,7 @@ mod tests {
         let test_expected_value: f32 = 4.0;
         let test_value: f32 = test_objective.compute(&test_input, &test_target).unwrap();
 
-        assert_eq!(test_expected_value, test_value);
+        assert!((test_value - test_expected_value).abs() < EPSILON);
     }
 
     #[test]
@@ -114,6 +116,10 @@ mod tests {
         let test_expected_value: Array1<f32> = array![-2.0, 2.0];
         let test_value: Array1<f32> = test_objective.gradient(&test_input, &test_target).unwrap();
 
-        assert_eq!(test_expected_value, test_value);
+        assert!(
+            (&test_value - &test_expected_value)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
     }
 }
