@@ -89,6 +89,7 @@ impl Network {
 mod tests {
     use super::*;
     use crate::activation::Activation;
+    use crate::objective::Objective;
     use ndarray::{Array2, array};
 
     #[test]
@@ -182,5 +183,35 @@ mod tests {
         let result2 = test_network2.forward_pass(&test_input2).unwrap();
 
         assert_eq!(result2.output, test_expected_output2);
+    }
+
+    #[test]
+    fn test_network_backward_pass() {
+        // Test 1
+        let test_weights1: Array2<f32> = array![[0.5, -0.3], [0.2, 0.8]];
+        let test_biases1: Array1<f32> = array![0.2, -0.1];
+        let test_activation1 = Activation::RELU;
+        let test_layer1 = Layer::new(test_weights1, test_biases1, test_activation1).unwrap();
+
+        let test_layers1: Vec<Layer> = vec![test_layer1];
+        let test_network1 = Network::new(test_layers1).unwrap();
+
+        let test_input1: Array1<f32> = array![1.0, 2.0];
+        let test_output1: NetworkOutput = test_network1.forward_pass(&test_input1).unwrap();
+
+        let test_target1: Array1<f32> = array![1.0, 3.0];
+        let test_objective = Objective::MSE;
+        let test_objective_gradient = test_objective.gradient(&test_output1.output, &test_target1).unwrap();
+
+        let test_back_prop: BackwardCache = test_network1.backward_pass(&test_output1, &test_objective_gradient);
+
+        let test_expected_weight_gradient1: Array2<f32> = array![
+            [-0.90000004, -1.8000001], 
+            [-1.3, -2.6]
+        ];
+        let test_expected_bias_gradient1: Array1<f32> = array![-0.90000004, -1.3];
+
+        assert_eq!(test_back_prop.entries[0].weight_gradient, test_expected_weight_gradient1);
+        assert_eq!(test_back_prop.entries[0].bias_gradient, test_expected_bias_gradient1);
     }
 }
