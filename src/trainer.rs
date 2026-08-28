@@ -2,6 +2,7 @@ use crate::data_set::DataSet;
 use crate::network::{Network, NetworkError};
 use crate::objective::Objective;
 use crate::updater::Updater;
+use crate::cache::BackwardCache;
 
 #[derive(Debug)]
 pub enum TrainerError {
@@ -12,6 +13,10 @@ impl From<NetworkError> for TrainerError {
     fn from(e: NetworkError) -> Self {
         TrainerError::UhOh(format!("{e:?}"))
     }
+}
+
+pub struct Batch {
+    items: Vec<BackwardCache>
 }
 
 pub struct Trainer {
@@ -30,7 +35,12 @@ impl Trainer {
         }
     }
 
-    pub fn run(&self, data: &DataSet, epochs: usize) -> Result<(), TrainerError> {
-        todo!()
+    pub fn run(&self, data: &DataSet, batch_size: usize, epochs: usize) -> Result<(), TrainerError> {
+        // todo: learn rayon enough to figure out how to parallelize this part
+        Ok(())
     }
+}
+
+fn aggregate_batch(batch: &Batch) -> BackwardCache {
+    todo!()
 }

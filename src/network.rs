@@ -395,7 +395,7 @@ mod tests {
             test_network.backward_pass(&test_output, &test_objective_gradient);
 
         let test_learning_rate: f32 = 0.01;
-        let test_updater = Updater::SGD_SINGLE {
+        let mut test_updater = Updater::SGD_SINGLE {
             learning_rate: test_learning_rate,
         };
 

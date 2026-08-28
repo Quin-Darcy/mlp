@@ -64,7 +64,7 @@ mod tests {
         };
 
         let test_learning_rate: f32 = 0.1;
-        let test_updater = Updater::SGD_SINGLE {
+        let mut test_updater = Updater::SGD_SINGLE {
             learning_rate: test_learning_rate,
         };
         test_updater.update(&test_cache, &mut test_layers);
