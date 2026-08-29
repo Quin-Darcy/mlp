@@ -43,3 +43,62 @@ impl DataSet {
         Ok(Self { samples, labels })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::array;
+
+    #[test]
+    fn test_data_set_empty_samples() {
+        let test_samples: Vec<Array1<f32>> = Vec::new();
+        let test_labels: Vec<Array1<f32>> = vec![
+            array![1.0, 0.0]
+        ];
+
+        let result = DataSet::from_data(test_samples, test_labels);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_data_set_empty_lables() {
+        let test_labels: Vec<Array1<f32>> = Vec::new();
+        let test_samples: Vec<Array1<f32>> = vec![
+            array![1.0, 0.0]
+        ];
+
+        let result = DataSet::from_data(test_samples, test_labels);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_data_set_invalid_sizes() {
+        let test_samples: Vec<Array1<f32>> = vec![
+            array![1.0, 2.0],
+            array![2.0, 1.0]
+        ];
+        let test_labels: Vec<Array1<f32>> = vec![
+            array![1.0, 0.0]
+        ];
+
+        let result = DataSet::from_data(test_samples, test_labels);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_data_set_valid_args() {
+        let test_samples: Vec<Array1<f32>> = vec![
+            array![1.0, 2.0],
+        ];
+        let test_labels: Vec<Array1<f32>> = vec![
+            array![1.0, 0.0]
+        ];
+
+        let result = DataSet::from_data(test_samples, test_labels);
+
+        assert!(result.is_ok());
+    }
+}
