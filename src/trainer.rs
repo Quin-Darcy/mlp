@@ -1,6 +1,6 @@
-use ndarray::Array1;
+use ndarray::{Array1, Array2};
 
-use crate::cache::BackwardCache;
+use crate::cache::{BackwardCache, BackwardEntry};
 use crate::data_set::DataSet;
 use crate::network::{Network, NetworkError, NetworkOutput};
 use crate::objective::{Objective, ObjectiveError};
@@ -12,6 +12,7 @@ pub enum TrainerError {
     BadObjectiveGradient(String),
     EmptyBatch(String),
     InvalidBatchSize(String),
+    UninitializedCache(String),
 }
 
 impl From<NetworkError> for TrainerError {
@@ -74,12 +75,13 @@ impl Trainer {
             ));
         }
 
-        let mut aggregated_gradients: BackwardCache;
+        let mut batch = Batch::new();
+        let mut aggregated_gradients = BackwardCache::new();
         let data_size: usize = data.samples.len();
         for _ in 0..epochs {
             // todo: learn rayon enough to figure out how to parallelize this part
             for i in (0..data_size).step_by(batch_size) {
-                let mut batch = Batch::new();
+                batch.items.clear();
                 for j in 0..batch_size {
                     let network_out: NetworkOutput =
                         self.network.forward_pass(&data.samples[i + j])?;
@@ -93,7 +95,18 @@ impl Trainer {
                     );
                 }
 
-                aggregated_gradients = aggregate_batch(&batch)?;
+                // initialize the aggregated_gradients only once after we
+                // have a backwards cache struct whose shapes we can copy
+                if aggregated_gradients.entries.is_empty() && !batch.items.is_empty() {
+                    for entry in &batch.items[0].entries {
+                        aggregated_gradients.entries.push(BackwardEntry {
+                            weight_gradient: Array2::<f32>::zeros(entry.weight_gradient.dim()),
+                            bias_gradient: Array1::<f32>::zeros(entry.bias_gradient.dim()),
+                        });
+                    }
+                }
+
+                aggregate_batch(&batch, &mut aggregated_gradients)?;
                 self.updater
                     .update(&aggregated_gradients, &mut self.network.layers);
             }
@@ -103,39 +116,51 @@ impl Trainer {
     }
 }
 
-fn aggregate_batch(batch: &Batch) -> Result<BackwardCache, TrainerError> {
+fn aggregate_batch(
+    batch: &Batch,
+    aggregated_gradients: &mut BackwardCache,
+) -> Result<(), TrainerError> {
     if batch.items.is_empty() {
         return Err(TrainerError::EmptyBatch(
             "Cannot aggregate empty batch".to_string(),
         ));
     }
 
-    // clone first element which will be our accumulator
-    let mut accumulator: BackwardCache = batch.items[0].clone();
+    if aggregated_gradients.entries.is_empty() {
+        return Err(TrainerError::UninitializedCache(
+            "Aggregated gradients cache struct must be initialized".to_string(),
+        ));
+    }
+
+    // zeroize the entries before accumulating
+    for entry in &mut aggregated_gradients.entries {
+        entry.weight_gradient.fill(0.0);
+        entry.bias_gradient.fill(0.0);
+    }
 
     let num_items: usize = batch.items.len();
-    let num_cache_entries: usize = accumulator.entries.len();
-    for item in &batch.items[1..] {
+    let num_cache_entries: usize = batch.items[0].entries.len();
+
+    for item in &batch.items {
         for i in 0..num_cache_entries {
-            accumulator.entries[i].weight_gradient += &item.entries[i].weight_gradient;
-            accumulator.entries[i].bias_gradient += &item.entries[i].bias_gradient;
+            aggregated_gradients.entries[i].weight_gradient += &item.entries[i].weight_gradient;
+            aggregated_gradients.entries[i].bias_gradient += &item.entries[i].bias_gradient;
         }
     }
 
     let scale = num_items as f32;
-    for entry in &mut accumulator.entries {
+    for entry in &mut aggregated_gradients.entries {
         entry.weight_gradient /= scale;
         entry.bias_gradient /= scale;
     }
 
-    Ok(accumulator)
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cache::BackwardEntry;
-    use ndarray::{Array2, array};
+    use ndarray::array;
 
     const EPSILON: f32 = 0.0001;
 
@@ -184,7 +209,8 @@ mod tests {
             items: vec![test_backward_cache1, test_backward_cache2],
         };
 
-        let result: BackwardCache = aggregate_batch(&test_batch).unwrap();
+        let mut result = BackwardCache::new();
+        aggregate_batch(&test_batch, &mut result).unwrap();
 
         let test_expected_weight_aggregate1: Array2<f32> = array![[2.0, 0.25], [1.55, 1.0]];
         let test_expected_bias_aggregate1: Array1<f32> = array![2.1, -0.85];
