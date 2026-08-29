@@ -13,6 +13,7 @@ pub enum TrainerError {
     EmptyBatch(String),
     InvalidBatchSize(String),
     UninitializedCache(String),
+    EmptyDataSet(String),
 }
 
 impl From<NetworkError> for TrainerError {
@@ -160,12 +161,141 @@ fn aggregate_batch(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::activation::Activation;
+    use crate::layer::Layer;
     use ndarray::array;
 
     const EPSILON: f32 = 0.0001;
 
-    // TODO: add unit tests for run()
-    // TODO: add unit tests for valid/invalid run() args
+    #[test]
+    fn test_trainer_run_invalid_args_batch_too_large() {
+        let test_weights: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
+        let test_biases: Array1<f32> = array![0.0, 0.0];
+        let test_activation = Activation::IDENTITY;
+        let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
+        let test_network = Network::new(vec![test_layer]).unwrap();
+
+        let test_updater = Updater::SGD_SINGLE { learning_rate: 0.1 };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![array![1.0, 0.0], array![0.0, 1.0]];
+        test_data.labels = vec![array![1.0, 0.0], array![0.0, 1.0]];
+
+        // Batch size exceeds the number of samples
+        let result = test_trainer.run(&test_data, 3, 1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_trainer_run_invalid_args_batch_not_divisor() {
+        let test_weights: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
+        let test_biases: Array1<f32> = array![0.0, 0.0];
+        let test_activation = Activation::IDENTITY;
+        let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
+        let test_network = Network::new(vec![test_layer]).unwrap();
+
+        let test_updater = Updater::SGD_SINGLE { learning_rate: 0.1 };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![
+            array![1.0, 0.0],
+            array![0.0, 1.0],
+            array![1.0, 1.0],
+            array![0.0, 0.0],
+        ];
+        test_data.labels = vec![
+            array![1.0, 0.0],
+            array![0.0, 1.0],
+            array![1.0, 1.0],
+            array![0.0, 0.0],
+        ];
+
+        // Batch size does not divide the number of samples
+        let result = test_trainer.run(&test_data, 3, 1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_trainer_run_valid_args() {
+        let test_weights: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
+        let test_biases: Array1<f32> = array![0.0, 0.0];
+        let test_activation = Activation::IDENTITY;
+        let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
+        let test_network = Network::new(vec![test_layer]).unwrap();
+
+        let test_updater = Updater::SGD_SINGLE { learning_rate: 0.1 };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![
+            array![1.0, 0.0],
+            array![0.0, 1.0],
+            array![1.0, 1.0],
+            array![0.0, 0.0],
+        ];
+        test_data.labels = vec![
+            array![1.0, 0.0],
+            array![0.0, 1.0],
+            array![1.0, 1.0],
+            array![0.0, 0.0],
+        ];
+
+        let result = test_trainer.run(&test_data, 2, 1);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_trainer_run() {
+        let test_weights1: Array2<f32> = array![[0.5, -0.5], [0.5, 0.5]];
+        let test_biases1: Array1<f32> = array![0.1, -0.1];
+        let test_activation1 = Activation::RELU;
+        let test_layer1 = Layer::new(test_weights1, test_biases1, test_activation1).unwrap();
+
+        let test_weights2: Array2<f32> = array![[1.0, -1.0], [0.5, 0.5]];
+        let test_biases2: Array1<f32> = array![0.0, 0.2];
+        let test_activation2 = Activation::IDENTITY;
+        let test_layer2 = Layer::new(test_weights2, test_biases2, test_activation2).unwrap();
+
+        let test_network = Network::new(vec![test_layer1, test_layer2]).unwrap();
+        let test_updater = Updater::SGD_SINGLE { learning_rate: 0.1 };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![array![1.0, 0.0], array![0.0, 1.0]];
+        test_data.labels = vec![array![1.0, 0.0], array![0.0, 1.0]];
+
+        test_trainer.run(&test_data, 2, 2).unwrap();
+
+        let test_expected_weights1: Array2<f32> =
+            array![[0.535_394, -0.5], [0.399_502_8, 0.498_012_9]];
+        let test_expected_biases1: Array1<f32> = array![0.135_394, -0.202_484_3];
+        let test_expected_weights2: Array2<f32> =
+            array![[1.041_827_8, -0.963_863_2], [0.458_250_5, 0.499_622_7]];
+        let test_expected_biases2: Array1<f32> = array![0.100_866, 0.194_801];
+
+        assert!(
+            (&test_trainer.network.layers[0].weights - &test_expected_weights1)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_trainer.network.layers[0].biases - &test_expected_biases1)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_trainer.network.layers[1].weights - &test_expected_weights2)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_trainer.network.layers[1].biases - &test_expected_biases2)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+    }
 
     #[test]
     fn test_trainer_aggregate_batch() {
@@ -244,5 +374,62 @@ mod tests {
                 .iter()
                 .all(|d| d.abs() < EPSILON)
         );
+    }
+
+    #[test]
+    fn test_trainer_aggregate_batch_invalid_args_empty_batch() {
+        let test_batch = Batch::new();
+
+        let mut test_aggregated_gradients = BackwardCache {
+            entries: vec![BackwardEntry {
+                weight_gradient: Array2::<f32>::zeros((2, 2)),
+                bias_gradient: Array1::<f32>::zeros(2),
+            }],
+        };
+
+        let result = aggregate_batch(&test_batch, &mut test_aggregated_gradients);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_trainer_aggregate_batch_invalid_args_uninitialized_cache() {
+        let test_backward_cache = BackwardCache {
+            entries: vec![BackwardEntry {
+                weight_gradient: array![[1.0, 2.0], [-1.0, 0.0]],
+                bias_gradient: array![3.2, -1.1],
+            }],
+        };
+        let test_batch = Batch {
+            items: vec![test_backward_cache],
+        };
+
+        // Aggregation target has no entries to accumulate into
+        let mut test_aggregated_gradients = BackwardCache::new();
+
+        let result = aggregate_batch(&test_batch, &mut test_aggregated_gradients);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_trainer_aggregate_batch_valid_args() {
+        let test_backward_cache = BackwardCache {
+            entries: vec![BackwardEntry {
+                weight_gradient: array![[1.0, 2.0], [-1.0, 0.0]],
+                bias_gradient: array![3.2, -1.1],
+            }],
+        };
+        let test_batch = Batch {
+            items: vec![test_backward_cache],
+        };
+
+        let mut test_aggregated_gradients = BackwardCache {
+            entries: vec![BackwardEntry {
+                weight_gradient: Array2::<f32>::zeros((2, 2)),
+                bias_gradient: Array1::<f32>::zeros(2),
+            }],
+        };
+
+        let result = aggregate_batch(&test_batch, &mut test_aggregated_gradients);
+        assert!(result.is_ok());
     }
 }
