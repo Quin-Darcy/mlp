@@ -42,6 +42,9 @@ impl DataSet {
 
         Ok(Self { samples, labels })
     }
+
+    // TODO: maybe add method which allows data to exist as plain vectors
+    // instead of ndarray types and the method converts those
 }
 
 #[cfg(test)]
