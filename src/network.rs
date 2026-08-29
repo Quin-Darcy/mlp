@@ -118,27 +118,6 @@ impl Network {
         backward_cache.entries.reverse();
         backward_cache
     }
-
-    pub fn train(
-        &mut self,
-        epochs: usize,
-        updater: &mut Updater,
-        objective: &Objective,
-        data: &[(Array1<f32>, Array1<f32>)], // maybe better as custom type?
-    ) -> Result<(), NetworkError> {
-        for _ in 0..epochs {
-            // below seems hardcoded to singleton sgd. need to revise to allow
-            // for batching depending on optimizer choice
-            for item in data {
-                let network_out: NetworkOutput = self.forward_pass(&item.0)?;
-                let gradient_objective = objective.gradient(&network_out.output, &item.1)?;
-                let network_back_prop: BackwardCache =
-                    self.backward_pass(&network_out, &gradient_objective);
-                updater.update(&network_back_prop, &mut self.layers);
-            }
-        }
-        Ok(())
-    }
 }
 
 fn outer_product(delta: &Array1<f32>, input: &Array1<f32>) -> Array2<f32> {
@@ -597,58 +576,6 @@ mod tests {
         let test_target: Array1<f32> = array![1.0, 0.0];
 
         // Pre-activations are [1.5, -0.5, 0.5] and [2.0, -0.5]: margin 0.5
-        assert_kink_margin(&test_network, &test_input, KINK_MARGIN);
-
-        let test_output: NetworkOutput = test_network.forward_pass(&test_input).unwrap();
-        let test_objective_gradient = test_objective
-            .gradient(&test_output.output, &test_target)
-            .unwrap();
-        let test_analytic: BackwardCache =
-            test_network.backward_pass(&test_output, &test_objective_gradient);
-
-        let test_numerical: BackwardCache = numerical_gradient(
-            &mut test_network,
-            &test_objective,
-            &test_input,
-            &test_target,
-            GRADIENT_CHECK_H,
-        );
-        assert!(max_relative_error(&test_analytic, &test_numerical) < GRADIENT_CHECK_TOLERANCE);
-    }
-
-    // Gradient check after a burn-in of training, so the weights are no
-    // longer the hand-picked initial values
-    #[test]
-    fn test_network_gradient_check_after_training() {
-        let test_weights1: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
-        let test_biases1: Array1<f32> = array![0.5, 0.5, 0.5];
-        let test_layer1 = Layer::new(test_weights1, test_biases1, Activation::RELU).unwrap();
-
-        let test_weights2: Array2<f32> = array![[1.0, 1.0, 1.0], [-1.0, 0.0, 2.0]];
-        let test_biases2: Array1<f32> = array![0.0, 0.0];
-        let test_layer2 = Layer::new(test_weights2, test_biases2, Activation::RELU).unwrap();
-
-        let test_weights3: Array2<f32> = array![[1.0, 2.0], [0.5, -1.0]];
-        let test_biases3: Array1<f32> = array![0.0, 1.0];
-        let test_layer3 = Layer::new(test_weights3, test_biases3, Activation::IDENTITY).unwrap();
-
-        let mut test_network = Network::new(vec![test_layer1, test_layer2, test_layer3]).unwrap();
-        let test_objective = Objective::MSE;
-        let mut test_updater = Updater::GD {
-            learning_rate: 0.02,
-        };
-
-        // Burn-in: a few epochs so the weights are no longer hand-picked
-        let test_data: Vec<(Array1<f32>, Array1<f32>)> = vec![
-            (array![1.0, -1.0], array![1.0, 0.0]),
-            (array![0.5, 0.5], array![0.0, 1.0]),
-        ];
-        test_network
-            .train(10, &mut test_updater, &test_objective, &test_data)
-            .unwrap();
-
-        let test_input: Array1<f32> = array![1.0, -1.0];
-        let test_target: Array1<f32> = array![1.0, 0.0];
         assert_kink_margin(&test_network, &test_input, KINK_MARGIN);
 
         let test_output: NetworkOutput = test_network.forward_pass(&test_input).unwrap();
