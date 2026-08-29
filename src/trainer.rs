@@ -1,10 +1,10 @@
 use ndarray::Array1;
 
+use crate::cache::BackwardCache;
 use crate::data_set::DataSet;
-use crate::network::{Network, NetworkOutput, NetworkError};
+use crate::network::{Network, NetworkError, NetworkOutput};
 use crate::objective::{Objective, ObjectiveError};
 use crate::updater::Updater;
-use crate::cache::BackwardCache;
 
 #[derive(Debug)]
 pub enum TrainerError {
@@ -26,10 +26,9 @@ impl From<ObjectiveError> for TrainerError {
     }
 }
 
-
 #[derive(Default, Debug)]
 pub struct Batch {
-    items: Vec<BackwardCache>
+    items: Vec<BackwardCache>,
 }
 
 impl Batch {
@@ -55,37 +54,48 @@ impl Trainer {
         }
     }
 
-    pub fn run(&mut self, data: &DataSet, batch_size: usize, epochs: usize) -> Result<(), TrainerError> {
-        // todo: learn rayon enough to figure out how to parallelize this part
-
+    pub fn run(
+        &mut self,
+        data: &DataSet,
+        batch_size: usize,
+        epochs: usize,
+    ) -> Result<(), TrainerError> {
         if data.samples.len() < batch_size {
             return Err(TrainerError::InvalidBatchSize(
-                    "Batch size cannot exceed number of samples in data set".to_string()
-                ));
+                "Batch size cannot exceed number of samples in data set".to_string(),
+            ));
         }
 
         // Handle when batch size doesn't divide num samples. reject it for now
         // TODO: consider handling this more elaborately/permissively
-        if data.samples.len() % batch_size != 0 {
+        if !data.samples.len().is_multiple_of(batch_size) {
             return Err(TrainerError::InvalidBatchSize(
-                "Batch size must divide the number of samples in data set".to_string()
+                "Batch size must divide the number of samples in data set".to_string(),
             ));
         }
 
         let mut aggregated_gradients: BackwardCache;
         let data_size: usize = data.samples.len();
         for _ in 0..epochs {
+            // todo: learn rayon enough to figure out how to parallelize this part
             for i in (0..data_size).step_by(batch_size) {
                 let mut batch = Batch::new();
                 for j in 0..batch_size {
-                    let network_out: NetworkOutput = self.network.forward_pass(&data.samples[i+j])?;
-                    let gradient_objective: Array1<f32> = self.objective.gradient(&network_out.output, &data.labels[i+j])?;
-                    
-                    batch.items.push(self.network.backward_pass(&network_out, &gradient_objective));
+                    let network_out: NetworkOutput =
+                        self.network.forward_pass(&data.samples[i + j])?;
+                    let gradient_objective: Array1<f32> = self
+                        .objective
+                        .gradient(&network_out.output, &data.labels[i + j])?;
+
+                    batch.items.push(
+                        self.network
+                            .backward_pass(&network_out, &gradient_objective),
+                    );
                 }
 
                 aggregated_gradients = aggregate_batch(&batch)?;
-                self.updater.update(&aggregated_gradients, &mut self.network.layers);
+                self.updater
+                    .update(&aggregated_gradients, &mut self.network.layers);
             }
         }
 
@@ -94,7 +104,7 @@ impl Trainer {
 }
 
 fn aggregate_batch(batch: &Batch) -> Result<BackwardCache, TrainerError> {
-    if batch.items.len() == 0 {
+    if batch.items.is_empty() {
         return Err(TrainerError::EmptyBatch(
             "Cannot aggregate empty batch".to_string(),
         ));
@@ -124,8 +134,8 @@ fn aggregate_batch(batch: &Batch) -> Result<BackwardCache, TrainerError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::{array, Array2};
     use crate::cache::BackwardEntry;
+    use ndarray::{Array2, array};
 
     const EPSILON: f32 = 0.0001;
 
@@ -138,32 +148,32 @@ mod tests {
         let test_bias_gradient11: Array1<f32> = array![3.2, -1.1];
         let test_backward_entry11 = BackwardEntry {
             weight_gradient: test_weight_gradient11,
-            bias_gradient: test_bias_gradient11
+            bias_gradient: test_bias_gradient11,
         };
 
         let test_weight_gradient12: Array2<f32> = array![[0.0, 1.0], [2.0, -2.0]];
         let test_bias_gradient12: Array1<f32> = array![2.2, 4.1];
         let test_backward_entry12 = BackwardEntry {
             weight_gradient: test_weight_gradient12,
-            bias_gradient: test_bias_gradient12
+            bias_gradient: test_bias_gradient12,
         };
 
         let test_backward_cache1 = BackwardCache {
-            entries: vec![test_backward_entry11, test_backward_entry12]
+            entries: vec![test_backward_entry11, test_backward_entry12],
         };
 
         let test_weight_gradient21: Array2<f32> = array![[3.0, -1.5], [4.1, 2.0]];
         let test_bias_gradient21: Array1<f32> = array![1.0, -0.6];
         let test_backward_entry21 = BackwardEntry {
             weight_gradient: test_weight_gradient21,
-            bias_gradient: test_bias_gradient21
+            bias_gradient: test_bias_gradient21,
         };
 
         let test_weight_gradient22: Array2<f32> = array![[2.5, 0.0], [-1.1, 3.5]];
         let test_bias_gradient22: Array1<f32> = array![3.0, -2.2];
         let test_backward_entry22 = BackwardEntry {
             weight_gradient: test_weight_gradient22,
-            bias_gradient: test_bias_gradient22
+            bias_gradient: test_bias_gradient22,
         };
 
         let test_backward_cache2 = BackwardCache {
@@ -171,10 +181,10 @@ mod tests {
         };
 
         let test_batch = Batch {
-            items: vec![test_backward_cache1, test_backward_cache2]
+            items: vec![test_backward_cache1, test_backward_cache2],
         };
 
-        let result: BackwardCache = aggregate_batch(&test_batch).unwrap(); 
+        let result: BackwardCache = aggregate_batch(&test_batch).unwrap();
 
         let test_expected_weight_aggregate1: Array2<f32> = array![[2.0, 0.25], [1.55, 1.0]];
         let test_expected_bias_aggregate1: Array1<f32> = array![2.1, -0.85];
