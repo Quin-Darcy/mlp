@@ -10,5 +10,5 @@ pub mod data_set;
 pub mod layer;
 pub mod network;
 pub mod objective;
-pub mod updater;
 pub mod trainer;
+pub mod updater;

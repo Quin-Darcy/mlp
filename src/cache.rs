@@ -6,7 +6,7 @@ pub struct ForwardEntry {
     pub pre_activation: Array1<f32>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BackwardEntry {
     pub bias_gradient: Array1<f32>,
     pub weight_gradient: Array2<f32>,
@@ -31,7 +31,7 @@ impl ForwardCache {
     }
 }
 
-#[derive(Default, Debug, PartialEq)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct BackwardCache {
     pub entries: Vec<BackwardEntry>,
 }
