@@ -10,6 +10,8 @@ use crate::cache::BackwardCache;
 pub enum TrainerError {
     BadForwardPass(String),
     BadObjectiveGradient(String),
+    EmptyBatch(String),
+    InvalidBatchSize(String),
 }
 
 impl From<NetworkError> for TrainerError {
@@ -56,8 +58,19 @@ impl Trainer {
     pub fn run(&mut self, data: &DataSet, batch_size: usize, epochs: usize) -> Result<(), TrainerError> {
         // todo: learn rayon enough to figure out how to parallelize this part
 
-        // TODO: check batch size isn't bigger than number of data samples or maybe just cap it?
-        // TODO: handle if batch size doesn't divide data size
+        if data.samples.len() < batch_size {
+            return Err(TrainerError::InvalidBatchSize(
+                    "Batch size cannot exceed number of samples in data set".to_string()
+                ));
+        }
+
+        // Handle when batch size doesn't divide num samples. reject it for now
+        // TODO: consider handling this more elaborately/permissively
+        if data.samples.len() % batch_size != 0 {
+            return Err(TrainerError::InvalidBatchSize(
+                "Batch size must divide the number of samples in data set".to_string()
+            ));
+        }
 
         let mut aggregated_gradients: BackwardCache;
         let data_size: usize = data.samples.len();
@@ -71,7 +84,7 @@ impl Trainer {
                     batch.items.push(self.network.backward_pass(&network_out, &gradient_objective));
                 }
 
-                aggregated_gradients = aggregate_batch(&batch);
+                aggregated_gradients = aggregate_batch(&batch)?;
                 self.updater.update(&aggregated_gradients, &mut self.network.layers);
             }
         }
@@ -80,8 +93,12 @@ impl Trainer {
     }
 }
 
-fn aggregate_batch(batch: &Batch) -> BackwardCache {
-    // TODO: validate batch is not empty
+fn aggregate_batch(batch: &Batch) -> Result<BackwardCache, TrainerError> {
+    if batch.items.len() == 0 {
+        return Err(TrainerError::EmptyBatch(
+            "Cannot aggregate empty batch".to_string(),
+        ));
+    }
 
     // clone first element which will be our accumulator
     let mut accumulator: BackwardCache = batch.items[0].clone();
@@ -101,7 +118,7 @@ fn aggregate_batch(batch: &Batch) -> BackwardCache {
         entry.bias_gradient /= scale;
     }
 
-    accumulator
+    Ok(accumulator)
 }
 
 #[cfg(test)]
@@ -111,6 +128,9 @@ mod tests {
     use crate::cache::BackwardEntry;
 
     const EPSILON: f32 = 0.0001;
+
+    // TODO: add unit tests for run()
+    // TODO: add unit tests for valid/invalid run() args
 
     #[test]
     fn test_trainer_aggregate_batch() {
@@ -154,7 +174,7 @@ mod tests {
             items: vec![test_backward_cache1, test_backward_cache2]
         };
 
-        let result: BackwardCache = aggregate_batch(&test_batch); 
+        let result: BackwardCache = aggregate_batch(&test_batch).unwrap(); 
 
         let test_expected_weight_aggregate1: Array2<f32> = array![[2.0, 0.25], [1.55, 1.0]];
         let test_expected_bias_aggregate1: Array1<f32> = array![2.1, -0.85];
