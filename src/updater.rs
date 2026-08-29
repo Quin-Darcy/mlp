@@ -4,9 +4,11 @@ use crate::layer::Layer;
 pub struct UpdaterState {/* TBD */}
 
 pub enum Updater {
-    SGD_SINGLE {
+    // simple gradient descent. whether stochastic or batch depends on
+    // if batch sizes is 1 or greater
+    GD {
         learning_rate: f32,
-    }, // stochastic gradient descent for single input
+    },
     TBD {
         learning_rate: f32,
         state: UpdaterState,
@@ -16,7 +18,7 @@ pub enum Updater {
 impl Updater {
     pub fn update(&mut self, cache: &BackwardCache, layers: &mut [Layer]) {
         match self {
-            Self::SGD_SINGLE { learning_rate } => {
+            Self::GD { learning_rate } => {
                 for (layer, entry) in layers.iter_mut().zip(cache.entries.iter()) {
                     layer
                         .weights
@@ -71,7 +73,7 @@ mod tests {
         };
 
         let test_learning_rate: f32 = 0.1;
-        let mut test_updater = Updater::SGD_SINGLE {
+        let mut test_updater = Updater::GD {
             learning_rate: test_learning_rate,
         };
         test_updater.update(&test_cache, &mut test_layers);

@@ -175,7 +175,7 @@ mod tests {
         let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
         let test_network = Network::new(vec![test_layer]).unwrap();
 
-        let test_updater = Updater::SGD_SINGLE { learning_rate: 0.1 };
+        let test_updater = Updater::GD { learning_rate: 0.1 };
         let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
 
         let mut test_data = DataSet::new();
@@ -195,7 +195,7 @@ mod tests {
         let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
         let test_network = Network::new(vec![test_layer]).unwrap();
 
-        let test_updater = Updater::SGD_SINGLE { learning_rate: 0.1 };
+        let test_updater = Updater::GD { learning_rate: 0.1 };
         let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
 
         let mut test_data = DataSet::new();
@@ -225,7 +225,7 @@ mod tests {
         let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
         let test_network = Network::new(vec![test_layer]).unwrap();
 
-        let test_updater = Updater::SGD_SINGLE { learning_rate: 0.1 };
+        let test_updater = Updater::GD { learning_rate: 0.1 };
         let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
 
         let mut test_data = DataSet::new();
@@ -259,7 +259,7 @@ mod tests {
         let test_layer2 = Layer::new(test_weights2, test_biases2, test_activation2).unwrap();
 
         let test_network = Network::new(vec![test_layer1, test_layer2]).unwrap();
-        let test_updater = Updater::SGD_SINGLE { learning_rate: 0.1 };
+        let test_updater = Updater::GD { learning_rate: 0.1 };
         let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
 
         let mut test_data = DataSet::new();
