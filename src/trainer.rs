@@ -210,6 +210,13 @@ mod tests {
         };
 
         let mut result = BackwardCache::new();
+        for entry in &test_batch.items[0].entries {
+            result.entries.push(BackwardEntry {
+                weight_gradient: Array2::<f32>::zeros(entry.weight_gradient.dim()),
+                bias_gradient: Array1::<f32>::zeros(entry.bias_gradient.dim()),
+            });
+        }
+
         aggregate_batch(&test_batch, &mut result).unwrap();
 
         let test_expected_weight_aggregate1: Array2<f32> = array![[2.0, 0.25], [1.55, 1.0]];
