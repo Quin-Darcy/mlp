@@ -153,6 +153,14 @@ mod tests {
 
     const EPSILON: f32 = 0.0001;
 
+    // Finite-difference step and tolerance for the gradient checks. Everything
+    // is f32, so the centered difference is limited by rounding: measured max
+    // relative error is ~3e-5 at h = 1e-2 and gets worse for smaller h
+    const GRADIENT_CHECK_H: f32 = 0.01;
+    const GRADIENT_CHECK_TOLERANCE: f32 = 0.001;
+    // Minimum distance of any RELU pre-activation from zero during a check
+    const KINK_MARGIN: f32 = 0.1;
+
     #[test]
     fn test_network_valid_args() {
         let test_weights1: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
@@ -427,5 +435,258 @@ mod tests {
                 .iter()
                 .all(|d| d.abs() < EPSILON)
         );
+    }
+
+    // test helpers below. these are for gradient checks
+
+    // gives the loss on the network relative to single
+    // sample and label
+    fn sample_loss(
+        network: &Network,
+        objective: &Objective,
+        input: &Array1<f32>,
+        target: &Array1<f32>,
+    ) -> f32 {
+        let output: NetworkOutput = network.forward_pass(input).unwrap();
+        objective.compute(&output.output, target).unwrap()
+    }
+
+    // Adjust each weight and bias term in a given network by first nudging up by
+    // h, and then nudging down by h, then take the difference between the two 
+    // resulting loss values and divide by 2h. This gives the slope of the secant
+    // line passing through L(x+h) and L(x-h). Doing this for each parameter of 
+    // the loss (objective) function should give us a vector that approximates
+    // the gradient of the loss function. We check that each term is within some
+    // distance from the approximation.
+    fn numerical_gradient(
+        network: &mut Network,
+        objective: &Objective,
+        input: &Array1<f32>,
+        target: &Array1<f32>,
+        h: f32,
+    ) -> BackwardCache {
+        let mut cache = BackwardCache::new();
+        for l in 0..network.layers.len() {
+            // Weights
+            let mut weight_gradient: Array2<f32> = Array2::zeros(network.layers[l].weights.dim());
+            for ((i, j), g) in weight_gradient.indexed_iter_mut() {
+                let original: f32 = network.layers[l].weights[[i, j]];
+                network.layers[l].weights[[i, j]] = original + h;
+                let plus: f32 = sample_loss(network, objective, input, target);
+                network.layers[l].weights[[i, j]] = original - h;
+                let minus: f32 = sample_loss(network, objective, input, target);
+                network.layers[l].weights[[i, j]] = original;
+                *g = (plus - minus) / (2.0 * h);
+            }
+
+            // Biases
+            let mut bias_gradient: Array1<f32> = Array1::zeros(network.layers[l].biases.dim());
+            for (i, g) in bias_gradient.indexed_iter_mut() {
+                let original: f32 = network.layers[l].biases[i];
+                network.layers[l].biases[i] = original + h;
+                let plus: f32 = sample_loss(network, objective, input, target);
+                network.layers[l].biases[i] = original - h;
+                let minus: f32 = sample_loss(network, objective, input, target);
+                network.layers[l].biases[i] = original;
+                *g = (plus - minus) / (2.0 * h);
+            }
+
+            cache.entries.push(BackwardEntry {
+                bias_gradient,
+                weight_gradient,
+            });
+        }
+        cache
+    }
+
+    // Largest relative error |a - n| / max(|a|, |n|) over all parameters.
+    // Elements where both gradients are ~0 are skipped: the relative error
+    // is undefined there and both agree that the parameter has no effect
+    fn max_relative_error(analytic: &BackwardCache, numerical: &BackwardCache) -> f32 {
+        let mut max_error: f32 = 0.0;
+        for (a_entry, n_entry) in analytic.entries.iter().zip(numerical.entries.iter()) {
+            let pairs = a_entry
+                .weight_gradient
+                .iter()
+                .zip(n_entry.weight_gradient.iter())
+                .chain(
+                    a_entry
+                        .bias_gradient
+                        .iter()
+                        .zip(n_entry.bias_gradient.iter()),
+                );
+            for (&a, &n) in pairs {
+                let scale: f32 = a.abs().max(n.abs());
+                if scale < 1e-6 {
+                    continue;
+                }
+                max_error = max_error.max((a - n).abs() / scale);
+            }
+        }
+        max_error
+    }
+
+    // Every RELU pre-activation must sit farther than `margin` from zero,
+    // otherwise a finite difference can straddle the kink and the numerical
+    // gradient is not comparable to the analytic one
+    fn assert_kink_margin(network: &Network, input: &Array1<f32>, margin: f32) {
+        let output: NetworkOutput = network.forward_pass(input).unwrap();
+        for (layer, entry) in network.layers.iter().zip(output.cache.entries.iter()) {
+            if matches!(layer.activation, Activation::RELU) {
+                assert!(
+                    entry.pre_activation.iter().all(|z| z.abs() > margin),
+                    "RELU pre-activation within {margin} of the kink: {:?}",
+                    entry.pre_activation
+                );
+            }
+        }
+    }
+
+    // Gradient check on a network with no kinks: 3 -> 3 (IDENTITY) -> 2 (IDENTITY)
+    #[test]
+    fn test_network_gradient_check_identity() {
+        let test_weights1: Array2<f32> =
+            array![[0.5, -0.3, 0.8], [0.2, 0.7, -0.6], [-0.4, 0.1, 0.9]];
+        let test_biases1: Array1<f32> = array![0.1, -0.2, 0.3];
+        let test_layer1 = Layer::new(test_weights1, test_biases1, Activation::IDENTITY).unwrap();
+
+        let test_weights2: Array2<f32> = array![[0.6, -0.5, 0.4], [-0.7, 0.3, 0.2]];
+        let test_biases2: Array1<f32> = array![0.05, -0.15];
+        let test_layer2 = Layer::new(test_weights2, test_biases2, Activation::IDENTITY).unwrap();
+
+        let mut test_network = Network::new(vec![test_layer1, test_layer2]).unwrap();
+        let test_objective = Objective::MSE;
+        let test_input: Array1<f32> = array![1.0, -0.5, 0.25];
+        let test_target: Array1<f32> = array![0.5, -1.0];
+
+        let test_output: NetworkOutput = test_network.forward_pass(&test_input).unwrap();
+        let test_objective_gradient = test_objective
+            .gradient(&test_output.output, &test_target)
+            .unwrap();
+        let test_analytic: BackwardCache =
+            test_network.backward_pass(&test_output, &test_objective_gradient);
+
+        let test_numerical: BackwardCache = numerical_gradient(
+            &mut test_network,
+            &test_objective,
+            &test_input,
+            &test_target,
+            GRADIENT_CHECK_H,
+        );
+        assert!(max_relative_error(&test_analytic, &test_numerical) < GRADIENT_CHECK_TOLERANCE);
+    }
+
+    // Gradient check with RELU layers, each with one inactive unit
+    #[test]
+    fn test_network_gradient_check_relu() {
+        let test_weights1: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
+        let test_biases1: Array1<f32> = array![0.5, 0.5, 0.5];
+        let test_layer1 = Layer::new(test_weights1, test_biases1, Activation::RELU).unwrap();
+
+        let test_weights2: Array2<f32> = array![[1.0, 1.0, 1.0], [-1.0, 0.0, 2.0]];
+        let test_biases2: Array1<f32> = array![0.0, 0.0];
+        let test_layer2 = Layer::new(test_weights2, test_biases2, Activation::RELU).unwrap();
+
+        let test_weights3: Array2<f32> = array![[1.0, 2.0], [0.5, -1.0]];
+        let test_biases3: Array1<f32> = array![0.0, 1.0];
+        let test_layer3 = Layer::new(test_weights3, test_biases3, Activation::IDENTITY).unwrap();
+
+        let mut test_network = Network::new(vec![test_layer1, test_layer2, test_layer3]).unwrap();
+        let test_objective = Objective::MSE;
+        let test_input: Array1<f32> = array![1.0, -1.0];
+        let test_target: Array1<f32> = array![1.0, 0.0];
+
+        // Pre-activations are [1.5, -0.5, 0.5] and [2.0, -0.5]: margin 0.5
+        assert_kink_margin(&test_network, &test_input, KINK_MARGIN);
+
+        let test_output: NetworkOutput = test_network.forward_pass(&test_input).unwrap();
+        let test_objective_gradient = test_objective
+            .gradient(&test_output.output, &test_target)
+            .unwrap();
+        let test_analytic: BackwardCache =
+            test_network.backward_pass(&test_output, &test_objective_gradient);
+
+        let test_numerical: BackwardCache = numerical_gradient(
+            &mut test_network,
+            &test_objective,
+            &test_input,
+            &test_target,
+            GRADIENT_CHECK_H,
+        );
+        assert!(max_relative_error(&test_analytic, &test_numerical) < GRADIENT_CHECK_TOLERANCE);
+    }
+
+    // Gradient check after a burn-in of training, so the weights are no
+    // longer the hand-picked initial values
+    #[test]
+    fn test_network_gradient_check_after_training() {
+        let test_weights1: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
+        let test_biases1: Array1<f32> = array![0.5, 0.5, 0.5];
+        let test_layer1 = Layer::new(test_weights1, test_biases1, Activation::RELU).unwrap();
+
+        let test_weights2: Array2<f32> = array![[1.0, 1.0, 1.0], [-1.0, 0.0, 2.0]];
+        let test_biases2: Array1<f32> = array![0.0, 0.0];
+        let test_layer2 = Layer::new(test_weights2, test_biases2, Activation::RELU).unwrap();
+
+        let test_weights3: Array2<f32> = array![[1.0, 2.0], [0.5, -1.0]];
+        let test_biases3: Array1<f32> = array![0.0, 1.0];
+        let test_layer3 = Layer::new(test_weights3, test_biases3, Activation::IDENTITY).unwrap();
+
+        let mut test_network = Network::new(vec![test_layer1, test_layer2, test_layer3]).unwrap();
+        let test_objective = Objective::MSE;
+        let mut test_updater = Updater::GD {
+            learning_rate: 0.02,
+        };
+
+        // Burn-in: a few epochs so the weights are no longer hand-picked
+        let test_data: Vec<(Array1<f32>, Array1<f32>)> = vec![
+            (array![1.0, -1.0], array![1.0, 0.0]),
+            (array![0.5, 0.5], array![0.0, 1.0]),
+        ];
+        test_network
+            .train(10, &mut test_updater, &test_objective, &test_data)
+            .unwrap();
+
+        let test_input: Array1<f32> = array![1.0, -1.0];
+        let test_target: Array1<f32> = array![1.0, 0.0];
+        assert_kink_margin(&test_network, &test_input, KINK_MARGIN);
+
+        let test_output: NetworkOutput = test_network.forward_pass(&test_input).unwrap();
+        let test_objective_gradient = test_objective
+            .gradient(&test_output.output, &test_target)
+            .unwrap();
+        let test_analytic: BackwardCache =
+            test_network.backward_pass(&test_output, &test_objective_gradient);
+
+        let test_numerical: BackwardCache = numerical_gradient(
+            &mut test_network,
+            &test_objective,
+            &test_input,
+            &test_target,
+            GRADIENT_CHECK_H,
+        );
+        assert!(max_relative_error(&test_analytic, &test_numerical) < GRADIENT_CHECK_TOLERANCE);
+    }
+
+    // Sanity check: with all weights and biases zero the output is zero, so
+    // the MSE loss must equal the mean of the squared targets
+    #[test]
+    fn test_network_zero_init_loss() {
+        let test_layer1 =
+            Layer::new(Array2::zeros((3, 2)), Array1::zeros(3), Activation::RELU).unwrap();
+        let test_layer2 = Layer::new(
+            Array2::zeros((3, 3)),
+            Array1::zeros(3),
+            Activation::IDENTITY,
+        )
+        .unwrap();
+        let test_network = Network::new(vec![test_layer1, test_layer2]).unwrap();
+
+        let test_input: Array1<f32> = array![0.7, -1.3];
+        let test_target: Array1<f32> = array![1.0, 2.0, 3.0];
+        let test_expected_loss: f32 = 14.0 / 3.0;
+
+        let test_loss: f32 = sample_loss(&test_network, &Objective::MSE, &test_input, &test_target);
+        assert!((test_loss - test_expected_loss).abs() < EPSILON);
     }
 }

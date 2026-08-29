@@ -164,6 +164,8 @@ mod tests {
     use crate::activation::Activation;
     use crate::layer::Layer;
     use ndarray::array;
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
 
     const EPSILON: f32 = 0.0001;
 
@@ -431,5 +433,49 @@ mod tests {
 
         let result = aggregate_batch(&test_batch, &mut test_aggregated_gradients);
         assert!(result.is_ok());
+    }
+
+    // Sanity check: the whole pipeline can drive the loss on a tiny data set
+    // close to zero. Fits y = x^2 on 8 points with a 1 -> 8 (RELU) -> 1 network
+    #[test]
+    fn test_trainer_run_overfit() {
+        let seed: u64 = 48;
+        let mut rng = StdRng::seed_from_u64(seed);
+        let test_range: [f32; 2] = [-1.0, 1.0];
+        let test_layer1 =
+            Layer::new_random([16, 1], test_range, Activation::RELU, &mut rng).unwrap();
+        let test_layer2 =
+            Layer::new_random([1, 16], test_range, Activation::IDENTITY, &mut rng).unwrap();
+        let test_network = Network::new(vec![test_layer1, test_layer2]).unwrap();
+
+        let test_updater = Updater::GD { learning_rate: 0.1 };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        // y = x^2 on 8 evenly spaced points in [-1, 1]
+        let num_samples: usize = 8;
+        let mut test_data = DataSet::new();
+        for i in 0..num_samples {
+            let x: f32 = -1.0 + 2.0 * (i as f32) / ((num_samples - 1) as f32);
+            test_data.samples.push(array![x]);
+            test_data.labels.push(array![x * x]);
+        }
+
+        let test_batch_size: usize = 1;
+        let test_epochs: usize = 500;
+        test_trainer
+            .run(&test_data, test_batch_size, test_epochs)
+            .unwrap();
+
+        // Mean loss over the data set after training; measured ~2e-4
+        let mut test_total_loss: f32 = 0.0;
+        for (sample, label) in test_data.samples.iter().zip(test_data.labels.iter()) {
+            let output = test_trainer.network.forward_pass(sample).unwrap();
+            test_total_loss += test_trainer
+                .objective
+                .compute(&output.output, label)
+                .unwrap();
+        }
+        let test_mean_loss: f32 = test_total_loss / (num_samples as f32);
+        assert!(test_mean_loss < 0.001);
     }
 }
