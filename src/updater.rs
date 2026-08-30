@@ -78,7 +78,7 @@ mod tests {
     const EPSILON: f32 = 0.0001;
 
     #[test]
-    fn test_updater_sgd_single_update() {
+    fn test_updater_sgd_simple() {
         let test_weights1: Array2<f32> = array![[1.0, 2.0], [3.0, 4.0]];
         let test_biases1: Array1<f32> = array![0.5, -0.5];
         let test_activation1 = Activation::RELU;
