@@ -13,6 +13,7 @@ pub enum GrapherError {
     BadObjective(String),
     BadPlot(String),
     EmptyCurves(String),
+    NonFiniteLoss(String),
 }
 
 impl From<TrainerError> for GrapherError {
@@ -83,6 +84,16 @@ pub fn plot_loss_curves(curves: &[LossCurve], title: &str, path: &str) -> Result
     if curves.iter().any(|curve| curve.losses.is_empty()) {
         return Err(GrapherError::EmptyCurves(
             "Every loss curve must have at least one epoch".to_string(),
+        ));
+    }
+
+    // A diverged run produces NaN or infinite losses, which cannot go on a log axis
+    if curves
+        .iter()
+        .any(|curve| curve.losses.iter().any(|loss| !loss.is_finite()))
+    {
+        return Err(GrapherError::NonFiniteLoss(
+            "Every loss must be finite; a run diverged".to_string(),
         ));
     }
 
@@ -195,6 +206,13 @@ mod tests {
         let test_curves: Vec<LossCurve> = vec![LossCurve {
             name: "empty".to_string(),
             losses: Vec::new(),
+        }];
+        let result = plot_loss_curves(&test_curves, "test", "target/test_loss_curves.png");
+        assert!(result.is_err());
+
+        let test_curves: Vec<LossCurve> = vec![LossCurve {
+            name: "diverged".to_string(),
+            losses: vec![1.0, 10.0, f32::NAN],
         }];
         let result = plot_loss_curves(&test_curves, "test", "target/test_loss_curves.png");
         assert!(result.is_err());
