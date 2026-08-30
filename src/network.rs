@@ -418,8 +418,7 @@ mod tests {
 
     // test helpers below. these are for gradient checks
 
-    // gives the loss on the network relative to single
-    // sample and label
+    // Evaluate the objective function for one sample through the network
     fn sample_loss(
         network: &Network,
         objective: &Objective,
@@ -447,18 +446,31 @@ mod tests {
         let mut cache = BackwardCache::new();
         for l in 0..network.layers.len() {
             // Weights
+            //
+            // initialize weight gradient struct to zeros to store the approximate
+            // gradient obtained throught the centered finite difference numerical
+            // method
             let mut weight_gradient: Array2<f32> = Array2::zeros(network.layers[l].weights.dim());
             for ((i, j), g) in weight_gradient.indexed_iter_mut() {
+                // store the ijth weight from the lth layer
                 let original: f32 = network.layers[l].weights[[i, j]];
+                // now shift the weight up by h
                 network.layers[l].weights[[i, j]] = original + h;
+                // compute the loss
                 let plus: f32 = sample_loss(network, objective, input, target);
+                // shift weight down by h
                 network.layers[l].weights[[i, j]] = original - h;
+                // compute loss
                 let minus: f32 = sample_loss(network, objective, input, target);
+                // restore the weight to its original
                 network.layers[l].weights[[i, j]] = original;
+
                 *g = (plus - minus) / (2.0 * h);
             }
 
             // Biases
+            //
+            // same comments and process as described above
             let mut bias_gradient: Array1<f32> = Array1::zeros(network.layers[l].biases.dim());
             for (i, g) in bias_gradient.indexed_iter_mut() {
                 let original: f32 = network.layers[l].biases[i];
