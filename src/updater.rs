@@ -1,24 +1,24 @@
 use crate::cache::BackwardCache;
 use crate::layer::Layer;
 
-pub struct UpdaterState {/* TBD */}
 
 pub enum Updater {
-    // simple gradient descent. whether stochastic or batch depends on
-    // if batch sizes is 1 or greater
-    GD {
+    // simple gradient descent. whether stochastic, batch, or mini-batch
+    // depends only on batch size used
+    SGD_SIMPLE {
         learning_rate: f32,
     },
-    TBD {
+    SGD_MOMENTUM {
         learning_rate: f32,
-        state: UpdaterState,
+        gamma: f32,
+        update_vector: BackwardCache,
     },
 }
 
 impl Updater {
     pub fn update(&mut self, cache: &BackwardCache, layers: &mut [Layer]) {
         match self {
-            Self::GD { learning_rate } => {
+            Self::SGD_SIMPLE { learning_rate } => {
                 for (layer, entry) in layers.iter_mut().zip(cache.entries.iter()) {
                     layer
                         .weights
@@ -28,9 +28,10 @@ impl Updater {
                         .scaled_add(-*learning_rate, &entry.bias_gradient);
                 }
             }
-            Self::TBD {
+            Self::SGD_MOMENTUM {
                 learning_rate,
-                state,
+                gamma,
+                update_vector,
             } => {}
         }
     }
@@ -73,7 +74,7 @@ mod tests {
         };
 
         let test_learning_rate: f32 = 0.1;
-        let mut test_updater = Updater::GD {
+        let mut test_updater = Updater::SGD_SIMPLE {
             learning_rate: test_learning_rate,
         };
         test_updater.update(&test_cache, &mut test_layers);
