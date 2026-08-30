@@ -1,6 +1,7 @@
-use crate::cache::BackwardCache;
-use crate::layer::Layer;
+use ndarray::{Array1, Array2};
 
+use crate::cache::{BackwardCache, BackwardEntry};
+use crate::layer::Layer;
 
 pub enum Updater {
     // simple gradient descent. whether stochastic, batch, or mini-batch
@@ -32,7 +33,37 @@ impl Updater {
                 learning_rate,
                 gamma,
                 update_vector,
-            } => {}
+            } => {
+                // For first call we need to initialize update vector
+                if update_vector.entries.is_empty() {
+                    for entry in &cache.entries {
+                        update_vector.entries.push(BackwardEntry {
+                            weight_gradient: Array2::<f32>::zeros(entry.weight_gradient.dim()),
+                            bias_gradient: Array1::<f32>::zeros(entry.bias_gradient.dim()),
+                        });
+                    }
+                }
+                // Update the update vector
+                for (uv_entry, c_entry) in
+                    update_vector.entries.iter_mut().zip(cache.entries.iter())
+                {
+                    uv_entry.weight_gradient *= *gamma;
+                    uv_entry
+                        .weight_gradient
+                        .scaled_add(*learning_rate, &c_entry.weight_gradient);
+
+                    uv_entry.bias_gradient *= *gamma;
+                    uv_entry
+                        .bias_gradient
+                        .scaled_add(*learning_rate, &c_entry.bias_gradient);
+                }
+
+                // Apply the update vector
+                for (layer, uv_entry) in layers.iter_mut().zip(update_vector.entries.iter()) {
+                    layer.weights -= &uv_entry.weight_gradient;
+                    layer.biases -= &uv_entry.bias_gradient;
+                }
+            }
         }
     }
 }

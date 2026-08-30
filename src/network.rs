@@ -424,9 +424,9 @@ mod tests {
     }
 
     // Adjust each weight and bias term in a given network by first nudging up by
-    // h, and then nudging down by h, then take the difference between the two 
+    // h, and then nudging down by h, then take the difference between the two
     // resulting loss values and divide by 2h. This gives the slope of the secant
-    // line passing through L(x+h) and L(x-h). Doing this for each parameter of 
+    // line passing through L(x+h) and L(x-h). Doing this for each parameter of
     // the loss (objective) function should give us a vector that approximates
     // the gradient of the loss function. We check that each term is within some
     // distance from the approximation.
@@ -486,7 +486,7 @@ mod tests {
 
     // Instead of just checking the difference between the numerical and analytic
     // gradients and comparing it to some fixed threshold, we instead set the threshold
-    // based on the size of values in the gradients. 
+    // based on the size of values in the gradients.
     // Largest relative error |a - n| / max(|a|, |n|) over all parameters.
     // Elements where both gradients are ~0 are skipped: the relative error
     // is undefined there and both agree that the parameter has no effect
