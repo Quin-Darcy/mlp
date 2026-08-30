@@ -2,8 +2,6 @@ use ndarray::{Array1, Array2};
 
 use crate::cache::{BackwardCache, BackwardEntry, ForwardCache, ForwardEntry};
 use crate::layer::{Layer, LayerError, LayerOutput};
-use crate::objective::{Objective, ObjectiveError};
-use crate::updater::Updater;
 
 #[derive(Debug)]
 pub enum NetworkError {
@@ -15,12 +13,6 @@ pub enum NetworkError {
 impl From<LayerError> for NetworkError {
     fn from(e: LayerError) -> Self {
         NetworkError::BadForwardPass(format!("{e:?}"))
-    }
-}
-
-impl From<ObjectiveError> for NetworkError {
-    fn from(e: ObjectiveError) -> Self {
-        NetworkError::BadObjectiveGradient(format!("{e:?}"))
     }
 }
 
@@ -128,6 +120,8 @@ fn outer_product(delta: &Array1<f32>, input: &Array1<f32>) -> Array2<f32> {
 mod tests {
     use super::*;
     use crate::activation::Activation;
+    use crate::objective::Objective;
+    use crate::updater::Updater;
     use ndarray::{Array2, array};
 
     const EPSILON: f32 = 0.0001;
@@ -175,7 +169,7 @@ mod tests {
         let test_activation2 = Activation::RELU;
         let test_layer2 = Layer::new(test_weights2, test_biases2, test_activation2).unwrap();
 
-        let test_weights3: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0],];
+        let test_weights3: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
         let test_biases3: Array1<f32> = array![0.0, 0.0];
         let test_activation3 = Activation::RELU;
         let test_layer3 = Layer::new(test_weights3, test_biases3, test_activation3).unwrap();
@@ -490,6 +484,9 @@ mod tests {
         cache
     }
 
+    // Instead of just checking the difference between the numerical and analytic
+    // gradients and comparing it to some fixed threshold, we instead set the threshold
+    // based on the size of values in the gradients. 
     // Largest relative error |a - n| / max(|a|, |n|) over all parameters.
     // Elements where both gradients are ~0 are skipped: the relative error
     // is undefined there and both agree that the parameter has no effect
