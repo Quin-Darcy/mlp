@@ -81,6 +81,8 @@ impl Trainer {
         let data_size: usize = data.samples.len();
         for _ in 0..epochs {
             // todo: learn rayon enough to figure out how to parallelize this part
+            // ie, each run in a single batch can be done in parallel since they
+            // are only averaged and are not sequential.
             for i in (0..data_size).step_by(batch_size) {
                 batch.items.clear();
                 for j in 0..batch_size {
