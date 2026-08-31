@@ -472,6 +472,81 @@ mod tests {
     }
 
     #[test]
+    fn test_network_backward_pass_update_nag() {
+        let test_weights1: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
+        let test_biases1: Array1<f32> = array![0.5, 0.5, 0.5];
+        let test_activation1 = Activation::RELU;
+        let test_layer1 = Layer::new(test_weights1, test_biases1, test_activation1).unwrap();
+
+        let test_weights2: Array2<f32> = array![[1.0, 1.0, 1.0], [-1.0, 0.0, 2.0]];
+        let test_biases2: Array1<f32> = array![0.0, 0.0];
+        let test_activation2 = Activation::RELU;
+        let test_layer2 = Layer::new(test_weights2, test_biases2, test_activation2).unwrap();
+
+        let test_weights3: Array2<f32> = array![[1.0, 2.0], [0.5, -1.0]];
+        let test_biases3: Array1<f32> = array![0.0, 1.0];
+        let test_activation3 = Activation::IDENTITY;
+        let test_layer3 = Layer::new(test_weights3, test_biases3, test_activation3).unwrap();
+
+        let test_layers: Vec<Layer> = vec![test_layer1, test_layer2, test_layer3];
+        let mut test_network = Network::new(test_layers).unwrap();
+
+        let test_input: Array1<f32> = array![1.0, -1.0];
+        let test_output: NetworkOutput = test_network.forward_pass(&test_input).unwrap();
+
+        let test_target: Array1<f32> = array![1.0, 0.0];
+        let test_objective = Objective::MSE;
+        let test_objective_gradient = test_objective
+            .gradient(&test_output.output, &test_target)
+            .unwrap();
+
+        let test_back_prop: BackwardCache =
+            test_network.backward_pass(&test_output, &test_objective_gradient);
+
+        let test_learning_rate: f32 = 0.01;
+        let test_gamma: f32 = 0.9;
+        let mut test_updater = Updater::SGD_NAG {
+            learning_rate: test_learning_rate,
+            gamma: test_gamma,
+            update_vector: BackwardCache::new(),
+        };
+
+        let test_pre_update_objective: f32 = test_objective
+            .compute(&test_output.output, &test_target)
+            .unwrap();
+
+        // the update vector starts at zero, so this step is
+        // (gamma + 1) * lr * g
+        test_updater.update(&test_back_prop, &mut test_network);
+
+        let test_post_update_output: NetworkOutput =
+            test_network.forward_pass(&test_input).unwrap();
+        let test_post_update_objective: f32 = test_objective
+            .compute(&test_post_update_output.output, &test_target)
+            .unwrap();
+
+        assert!(test_post_update_objective < test_pre_update_objective);
+
+        // update vector now carries the lookahead momentum from
+        // the first step, and the objective must still fall
+        let test_objective_gradient2 = test_objective
+            .gradient(&test_post_update_output.output, &test_target)
+            .unwrap();
+        let test_back_prop2: BackwardCache =
+            test_network.backward_pass(&test_post_update_output, &test_objective_gradient2);
+
+        test_updater.update(&test_back_prop2, &mut test_network);
+
+        let test_post_update_output2: NetworkOutput =
+            test_network.forward_pass(&test_input).unwrap();
+        let test_post_update_objective2: f32 = test_objective
+            .compute(&test_post_update_output2.output, &test_target)
+            .unwrap();
+
+        assert!(test_post_update_objective2 < test_post_update_objective);
+    }
+
+    #[test]
     fn test_network_util_outer_product() {
         let test_vec1: Array1<f32> = array![-1.8, -2.6];
         let test_vec2: Array1<f32> = array![1.0, 2.0];

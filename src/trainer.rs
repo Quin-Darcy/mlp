@@ -284,6 +284,39 @@ mod tests {
     }
 
     #[test]
+    fn test_trainer_run_valid_args_nag() {
+        let test_weights: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
+        let test_biases: Array1<f32> = array![0.0, 0.0];
+        let test_activation = Activation::IDENTITY;
+        let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
+        let test_network = Network::new(vec![test_layer]).unwrap();
+
+        let test_updater = Updater::SGD_NAG {
+            learning_rate: 0.01,
+            gamma: 0.9,
+            update_vector: BackwardCache::new(),
+        };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![
+            array![1.0, 0.0],
+            array![0.0, 1.0],
+            array![1.0, 1.0],
+            array![0.0, 0.0],
+        ];
+        test_data.labels = vec![
+            array![1.0, 0.0],
+            array![0.0, 1.0],
+            array![1.0, 1.0],
+            array![0.0, 0.0],
+        ];
+
+        let result = test_trainer.run(&test_data, 2, 1);
+        assert!(result.is_ok());
+    }
+
+    #[test]
     fn test_trainer_run_simple() {
         let test_weights1: Array2<f32> = array![[0.5, -0.5], [0.5, 0.5]];
         let test_biases1: Array1<f32> = array![0.1, -0.1];
@@ -371,6 +404,66 @@ mod tests {
         let test_expected_weights2: Array2<f32> =
             array![[1.063_427_8, -0.942_263_2], [0.439_350_5, 0.497_822_7]];
         let test_expected_biases2: Array1<f32> = array![0.154_866, 0.190_301];
+
+        assert!(
+            (&test_trainer.network.layers[0].weights - &test_expected_weights1)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_trainer.network.layers[0].biases - &test_expected_biases1)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_trainer.network.layers[1].weights - &test_expected_weights2)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+        assert!(
+            (&test_trainer.network.layers[1].biases - &test_expected_biases2)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+    }
+
+    #[test]
+    fn test_trainer_run_nag() {
+        // Same network, data and schedule as test_trainer_run, with the
+        // NAG updater. Two epochs so the update vector carried over
+        // from the first epoch shapes the second step
+        let test_weights1: Array2<f32> = array![[0.5, -0.5], [0.5, 0.5]];
+        let test_biases1: Array1<f32> = array![0.1, -0.1];
+        let test_activation1 = Activation::RELU;
+        let test_layer1 = Layer::new(test_weights1, test_biases1, test_activation1).unwrap();
+
+        let test_weights2: Array2<f32> = array![[1.0, -1.0], [0.5, 0.5]];
+        let test_biases2: Array1<f32> = array![0.0, 0.2];
+        let test_activation2 = Activation::IDENTITY;
+        let test_layer2 = Layer::new(test_weights2, test_biases2, test_activation2).unwrap();
+
+        let test_network = Network::new(vec![test_layer1, test_layer2]).unwrap();
+        let test_updater = Updater::SGD_NAG {
+            learning_rate: 0.1,
+            gamma: 0.9,
+            update_vector: BackwardCache::new(),
+        };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![array![1.0, 0.0], array![0.0, 1.0]];
+        test_data.labels = vec![array![1.0, 0.0], array![0.0, 1.0]];
+
+        // Expected values computed with an independent implementation:
+        // v = gamma * v + lr * mean_gradient, then W -= gamma * v + lr * mean_gradient
+        test_trainer.run(&test_data, 2, 2).unwrap();
+
+        let test_expected_weights1: Array2<f32> =
+            array![[0.568_249_1, -0.5], [0.286_075_8, 0.505_073_3]];
+        let test_expected_biases1: Array1<f32> = array![0.168_249_1, -0.308_850_9];
+        let test_expected_weights2: Array2<f32> =
+            array![[1.086_751_7, -0.925_759_7], [0.404_586_7, 0.502_336_2]];
+        let test_expected_biases2: Array1<f32> = array![0.208_081_8, 0.194_374_2];
 
         assert!(
             (&test_trainer.network.layers[0].weights - &test_expected_weights1)
@@ -610,6 +703,54 @@ mod tests {
             .unwrap();
 
         // Mean loss over the data set after training; measured ~2e-5
+        let mut test_total_loss: f32 = 0.0;
+        for (sample, label) in test_data.samples.iter().zip(test_data.labels.iter()) {
+            let output = test_trainer.network.forward_pass(sample).unwrap();
+            test_total_loss += test_trainer
+                .objective
+                .compute(&output.output, label)
+                .unwrap();
+        }
+        let test_mean_loss: f32 = test_total_loss / (num_samples as f32);
+        assert!(test_mean_loss < 0.001);
+    }
+
+    #[test]
+    fn test_trainer_run_overfit_nag() {
+        let seed: u64 = 48;
+        let mut rng = StdRng::seed_from_u64(seed);
+        let test_range: [f32; 2] = [-1.0, 1.0];
+        let test_layer1 =
+            Layer::new_random([16, 1], test_range, Activation::RELU, &mut rng).unwrap();
+        let test_layer2 =
+            Layer::new_random([1, 16], test_range, Activation::IDENTITY, &mut rng).unwrap();
+        let test_network = Network::new(vec![test_layer1, test_layer2]).unwrap();
+
+        // Smaller learning rate than the SGD_SIMPLE version. with gamma 0.9
+        // momentum amplifies the step by up to 10x, and 0.02 or more diverges
+        let test_updater = Updater::SGD_NAG {
+            learning_rate: 0.01,
+            gamma: 0.9,
+            update_vector: BackwardCache::new(),
+        };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        // y = x^2 on 8 evenly spaced points in [-1, 1]
+        let num_samples: usize = 8;
+        let mut test_data = DataSet::new();
+        for i in 0..num_samples {
+            let x: f32 = -1.0 + 2.0 * (i as f32) / ((num_samples - 1) as f32);
+            test_data.samples.push(array![x]);
+            test_data.labels.push(array![x * x]);
+        }
+
+        let test_batch_size: usize = 1;
+        let test_epochs: usize = 500;
+        test_trainer
+            .run(&test_data, test_batch_size, test_epochs)
+            .unwrap();
+
+        // Mean loss over the data set after training; measured ~1e-5
         let mut test_total_loss: f32 = 0.0;
         for (sample, label) in test_data.samples.iter().zip(test_data.labels.iter()) {
             let output = test_trainer.network.forward_pass(sample).unwrap();
