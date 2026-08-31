@@ -1,7 +1,7 @@
 use ndarray::{Array1, Array2};
 
 use crate::cache::{BackwardCache, BackwardEntry};
-use crate::layer::Layer;
+use crate::network::Network;
 
 pub enum Updater {
     // simple gradient descent. whether stochastic, batch, or mini-batch
@@ -14,13 +14,18 @@ pub enum Updater {
         gamma: f32,
         update_vector: BackwardCache,
     },
+    SGD_NAG {
+        learning_rate: f32,
+        gamma: f32,
+        update_vector: BackwardCache,
+    },
 }
 
 impl Updater {
-    pub fn update(&mut self, cache: &BackwardCache, layers: &mut [Layer]) {
+    pub fn update(&mut self, cache: &BackwardCache, network: &mut Network) {
         match self {
             Self::SGD_SIMPLE { learning_rate } => {
-                for (layer, entry) in layers.iter_mut().zip(cache.entries.iter()) {
+                for (layer, entry) in network.layers.iter_mut().zip(cache.entries.iter()) {
                     layer
                         .weights
                         .scaled_add(-*learning_rate, &entry.weight_gradient);
@@ -59,11 +64,18 @@ impl Updater {
                 }
 
                 // Apply the update vector
-                for (layer, uv_entry) in layers.iter_mut().zip(update_vector.entries.iter()) {
+                for (layer, uv_entry) in network.layers.iter_mut().zip(update_vector.entries.iter()) {
                     layer.weights -= &uv_entry.weight_gradient;
                     layer.biases -= &uv_entry.bias_gradient;
                 }
-            }
+            },
+            Self::SGD_NAG {
+                learning_rate,
+                gamma,
+                update_vector,
+            } => { 
+                todo!() 
+            },
         }
     }
 }
@@ -73,6 +85,7 @@ mod tests {
     use super::*;
     use crate::activation::Activation;
     use crate::cache::BackwardEntry;
+    use crate::layer::Layer;
     use ndarray::{Array1, Array2, array};
 
     const EPSILON: f32 = 0.0001;
@@ -90,6 +103,7 @@ mod tests {
         let test_layer2 = Layer::new(test_weights2, test_biases2, test_activation2).unwrap();
 
         let mut test_layers: Vec<Layer> = vec![test_layer1, test_layer2];
+        let mut test_network = Network::new(test_layers).unwrap();
 
         let test_cache = BackwardCache {
             entries: vec![
@@ -108,7 +122,7 @@ mod tests {
         let mut test_updater = Updater::SGD_SIMPLE {
             learning_rate: test_learning_rate,
         };
-        test_updater.update(&test_cache, &mut test_layers);
+        test_updater.update(&test_cache, &mut test_network);
 
         // Each parameter moves by -learning_rate * gradient
         let test_expected_weights1: Array2<f32> = array![[0.9, 2.1], [2.8, 4.0]];
@@ -117,22 +131,22 @@ mod tests {
         let test_expected_biases2: Array1<f32> = array![-0.1, -0.2, -0.3];
 
         assert!(
-            (&test_layers[0].weights - &test_expected_weights1)
+            (&test_network.layers[0].weights - &test_expected_weights1)
                 .iter()
                 .all(|d| d.abs() < EPSILON)
         );
         assert!(
-            (&test_layers[0].biases - &test_expected_biases1)
+            (&test_network.layers[0].biases - &test_expected_biases1)
                 .iter()
                 .all(|d| d.abs() < EPSILON)
         );
         assert!(
-            (&test_layers[1].weights - &test_expected_weights2)
+            (&test_network.layers[1].weights - &test_expected_weights2)
                 .iter()
                 .all(|d| d.abs() < EPSILON)
         );
         assert!(
-            (&test_layers[1].biases - &test_expected_biases2)
+            (&test_network.layers[1].biases - &test_expected_biases2)
                 .iter()
                 .all(|d| d.abs() < EPSILON)
         );
@@ -151,6 +165,7 @@ mod tests {
         let test_layer2 = Layer::new(test_weights2, test_biases2, test_activation2).unwrap();
 
         let mut test_layers: Vec<Layer> = vec![test_layer1, test_layer2];
+        let mut test_network = Network::new(test_layers).unwrap();
 
         let test_cache = BackwardCache {
             entries: vec![
@@ -175,7 +190,7 @@ mod tests {
 
         // the update vector starts at zero, so v = lr * g and the
         // step is the same as simple gradient descent
-        test_updater.update(&test_cache, &mut test_layers);
+        test_updater.update(&test_cache, &mut test_network);
 
         let test_expected_weights1: Array2<f32> = array![[0.9, 2.1], [2.8, 4.0]];
         let test_expected_biases1: Array1<f32> = array![0.4, -0.3];
@@ -183,27 +198,27 @@ mod tests {
         let test_expected_biases2: Array1<f32> = array![-0.1, -0.2, -0.3];
 
         assert!(
-            (&test_layers[0].weights - &test_expected_weights1)
+            (&test_network.layers[0].weights - &test_expected_weights1)
                 .iter()
                 .all(|d| d.abs() < EPSILON)
         );
         assert!(
-            (&test_layers[0].biases - &test_expected_biases1)
+            (&test_network.layers[0].biases - &test_expected_biases1)
                 .iter()
                 .all(|d| d.abs() < EPSILON)
         );
         assert!(
-            (&test_layers[1].weights - &test_expected_weights2)
+            (&test_network.layers[1].weights - &test_expected_weights2)
                 .iter()
                 .all(|d| d.abs() < EPSILON)
         );
         assert!(
-            (&test_layers[1].biases - &test_expected_biases2)
+            (&test_network.layers[1].biases - &test_expected_biases2)
                 .iter()
                 .all(|d| d.abs() < EPSILON)
         );
 
-        test_updater.update(&test_cache, &mut test_layers);
+        test_updater.update(&test_cache, &mut test_network);
 
         let test_expected_weights1: Array2<f32> = array![[0.71, 2.29], [2.42, 4.0]];
         let test_expected_biases1: Array1<f32> = array![0.21, 0.08];
@@ -211,22 +226,22 @@ mod tests {
         let test_expected_biases2: Array1<f32> = array![-0.29, -0.58, -0.87];
 
         assert!(
-            (&test_layers[0].weights - &test_expected_weights1)
+            (&test_network.layers[0].weights - &test_expected_weights1)
                 .iter()
                 .all(|d| d.abs() < EPSILON)
         );
         assert!(
-            (&test_layers[0].biases - &test_expected_biases1)
+            (&test_network.layers[0].biases - &test_expected_biases1)
                 .iter()
                 .all(|d| d.abs() < EPSILON)
         );
         assert!(
-            (&test_layers[1].weights - &test_expected_weights2)
+            (&test_network.layers[1].weights - &test_expected_weights2)
                 .iter()
                 .all(|d| d.abs() < EPSILON)
         );
         assert!(
-            (&test_layers[1].biases - &test_expected_biases2)
+            (&test_network.layers[1].biases - &test_expected_biases2)
                 .iter()
                 .all(|d| d.abs() < EPSILON)
         );

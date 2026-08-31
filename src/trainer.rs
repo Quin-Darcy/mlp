@@ -109,7 +109,7 @@ impl Trainer {
 
                 aggregate_batch(&batch, &mut aggregated_gradients)?;
                 self.updater
-                    .update(&aggregated_gradients, &mut self.network.layers);
+                    .update(&aggregated_gradients, &mut self.network);
             }
         }
 

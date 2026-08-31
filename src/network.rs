@@ -385,7 +385,7 @@ mod tests {
             .unwrap();
 
         // Update parameters
-        test_updater.update(&test_back_prop, &mut test_network.layers);
+        test_updater.update(&test_back_prop, &mut test_network);
 
         let test_post_update_output: NetworkOutput =
             test_network.forward_pass(&test_input).unwrap();
@@ -442,7 +442,7 @@ mod tests {
 
         // the update vector starts at zero, so this step is
         // the same as plain gradient descent
-        test_updater.update(&test_back_prop, &mut test_network.layers);
+        test_updater.update(&test_back_prop, &mut test_network);
 
         let test_post_update_output: NetworkOutput =
             test_network.forward_pass(&test_input).unwrap();
@@ -460,7 +460,7 @@ mod tests {
         let test_back_prop2: BackwardCache =
             test_network.backward_pass(&test_post_update_output, &test_objective_gradient2);
 
-        test_updater.update(&test_back_prop2, &mut test_network.layers);
+        test_updater.update(&test_back_prop2, &mut test_network);
 
         let test_post_update_output2: NetworkOutput =
             test_network.forward_pass(&test_input).unwrap();
