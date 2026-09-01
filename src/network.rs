@@ -5,6 +5,7 @@ use crate::layer::{Layer, LayerError, LayerOutput};
 
 #[derive(Debug)]
 pub enum NetworkError {
+    InvalidArgs(String),
     InvalidArgDimensions(String),
     BadForwardPass(String),
     BadObjectiveGradient(String),
@@ -29,6 +30,13 @@ pub struct Network {
 impl Network {
     #[must_use]
     pub fn new(layers: Vec<Layer>) -> Result<Self, NetworkError> {
+        // check if layers is empty
+        if layers.is_empty() {
+            return Err(NetworkError::InvalidArgs(
+                "Layers cannot be empty".to_string()
+            ));
+        }
+
         // Validate that the dimensions of consecutive layers
         for i in 0..layers.len() - 1 {
             if layers[i].weights.dim().0 != layers[i + 1].weights.dim().1 {
@@ -133,6 +141,13 @@ mod tests {
     const GRADIENT_CHECK_TOLERANCE: f32 = 0.001;
     // Minimum distance of any RELU pre-activation from zero during a check
     const KINK_MARGIN: f32 = 0.1;
+
+    #[test]
+    fn test_network_empty_layers() {
+        let test_layers: Vec<Layer> = Vec::new();
+        let result = Network::new(test_layers);
+        assert!(result.is_err());
+    }
 
     #[test]
     fn test_network_valid_args() {
