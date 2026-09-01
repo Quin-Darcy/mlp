@@ -33,7 +33,7 @@ impl Network {
         // check if layers is empty
         if layers.is_empty() {
             return Err(NetworkError::InvalidArgs(
-                "Layers cannot be empty".to_string()
+                "Layers cannot be empty".to_string(),
             ));
         }
 
@@ -53,7 +53,7 @@ impl Network {
     pub fn forward_pass(&self, input: &Array1<f32>) -> Result<NetworkOutput, NetworkError> {
         let mut layer_input: Array1<f32> = input.clone();
         let mut layer_output: LayerOutput;
-        let mut cache = ForwardCache::new();
+        let mut cache = ForwardCache::with_capacity(self.layers.len());
 
         for layer in &self.layers {
             layer_output = layer.forward_pass(&layer_input)?;
@@ -77,7 +77,7 @@ impl Network {
     ) -> BackwardCache {
         // This cache will hold the weight and bias gradients
         // accumulated through the back prop
-        let mut backward_cache = BackwardCache::new();
+        let mut backward_cache = BackwardCache::with_capacity(self.layers.len());
 
         // This is the intermediate value which gets carried backwards
         // from one layer to the next. For the last layer (first in
