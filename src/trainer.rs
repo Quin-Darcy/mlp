@@ -65,6 +65,12 @@ impl Trainer {
         batch_size: usize,
         epochs: usize,
     ) -> Result<(), TrainerError> {
+        if batch_size == 0 {
+            return Err(TrainerError::InvalidBatchSize(
+                "Batch size must be greater than zero".to_string()
+            ));
+        }
+
         if data.samples.len() < batch_size {
             return Err(TrainerError::InvalidBatchSize(format!(
                 "Batch size ({}) cannot exceed number of samples in data set ({}).",
@@ -206,6 +212,26 @@ mod tests {
     const EPSILON: f32 = 0.0001;
 
     #[test]
+    fn test_trainer_run_zero_batch_size() {
+        let test_weights: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
+        let test_biases: Array1<f32> = array![0.0, 0.0];
+        let test_activation = Activation::IDENTITY;
+        let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
+        let test_network = Network::new(vec![test_layer]).unwrap();
+
+        let test_updater = Updater::SGD_SIMPLE { learning_rate: 0.1 };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![array![1.0, 0.0], array![0.0, 1.0]];
+        test_data.labels = vec![array![1.0, 0.0], array![0.0, 1.0]];
+
+        // Batch size exceeds the number of samples
+        let result = test_trainer.run(&test_data, 0, 1);
+        assert!(result.is_err());
+    }    
+
+    #[test]
     fn test_trainer_run_invalid_args_batch_too_large() {
         let test_weights: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
         let test_biases: Array1<f32> = array![0.0, 0.0];
@@ -337,7 +363,7 @@ mod tests {
             array![0.0, 0.0],
         ];
 
-        let result = test_trainer.run(&test_data, 2, 1);
+        let result = test_trainer.run(&test_data, 1, 1);
         assert!(result.is_ok());
     }
 
