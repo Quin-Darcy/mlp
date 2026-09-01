@@ -67,7 +67,7 @@ impl Trainer {
     ) -> Result<(), TrainerError> {
         if batch_size == 0 {
             return Err(TrainerError::InvalidBatchSize(
-                "Batch size must be greater than zero".to_string()
+                "Batch size must be greater than zero".to_string(),
             ));
         }
 
@@ -229,7 +229,7 @@ mod tests {
         // Batch size exceeds the number of samples
         let result = test_trainer.run(&test_data, 0, 1);
         assert!(result.is_err());
-    }    
+    }
 
     #[test]
     fn test_trainer_run_invalid_args_batch_too_large() {

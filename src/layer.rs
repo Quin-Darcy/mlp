@@ -172,7 +172,7 @@ mod tests {
         //              [0.41448832, 0.29030514, 0.68937206, -0.30939674]]
 
         let test_input: Array1<f32> = array![1.0, 0.0, 0.0, 0.0];
-        let expected_output: Array1<f32> = array![0.0, 0.03167343];
+        let expected_output: Array1<f32> = array![0.0, 0.031_673_43];
         let test_result = test_layer.forward_pass(&test_input).unwrap();
         assert!(
             (&test_result.post_activation - &expected_output)
