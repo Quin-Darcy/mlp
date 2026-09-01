@@ -40,6 +40,25 @@ impl DataSet {
             ));
         }
 
+        // TODO: check to make sure all samples have the same size and all labels have same size
+        let sample_size: usize = samples[0].dim();
+        for sample in samples.iter() {
+            if sample.dim() != sample_size {
+                return Err(DataError::InvalidSizes(
+                    "All samples must be the same size".to_string()
+                ));
+            }
+        }
+
+        let label_size: usize = labels[0].dim();
+        for label in labels.iter() {
+            if label.dim() != label_size {
+                return Err(DataError::InvalidSizes(
+                    "All labels must be of the same size".to_string()
+                ));
+            }
+        }
+
         Ok(Self { samples, labels })
     }
 
@@ -73,9 +92,29 @@ mod tests {
     }
 
     #[test]
-    fn test_data_set_invalid_sizes() {
+    fn test_data_set_invalid_sizes_non_equal_samples_and_labels() {
         let test_samples: Vec<Array1<f32>> = vec![array![1.0, 2.0], array![2.0, 1.0]];
         let test_labels: Vec<Array1<f32>> = vec![array![1.0, 0.0]];
+
+        let result = DataSet::from_data(test_samples, test_labels);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_data_set_invalid_sizes_mismatched_sample_sizes() {
+        let test_samples: Vec<Array1<f32>> = vec![array![1.0, 2.0], array![1.0, 0.0, 0.0]];
+        let test_labels: Vec<Array1<f32>> = vec![array![1.0, 0.0], array![1.0, 1.0]];
+
+        let result = DataSet::from_data(test_samples, test_labels);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_data_set_invalid_sizes_mismatched_label_sizes() {
+        let test_samples: Vec<Array1<f32>> = vec![array![1.0, 2.0], array![1.0, 0.0]];
+        let test_labels: Vec<Array1<f32>> = vec![array![1.0, 0.0], array![1.0, 1.0, 0.0]];
 
         let result = DataSet::from_data(test_samples, test_labels);
 
