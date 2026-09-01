@@ -13,6 +13,7 @@ pub enum TrainerError {
     EmptyBatch(String),
     InvalidBatchSize(String),
     UninitializedCache(String),
+    InvalidDataSet(String),
     InvalidDataLabelSize(String),
     InvalidDataSampleSize(String),
     EmptyDataSet(String),
@@ -97,6 +98,15 @@ impl Trainer {
                 "Length of data label ({}) must match size of network output layer ({})",
                 data.labels[0].dim(),
                 self.network.layers[num_layers - 1].weights.dim().0
+            )));
+        }
+
+        // check there are same number of samples and labels
+        if data.samples.len() != data.labels.len() {
+            return Err(TrainerError::InvalidDataSet(format!(
+                "Number of samples ({}) must match number of labels ({})",
+                data.samples.len(),
+                data.labels.len()
             )));
         }
 
@@ -280,6 +290,25 @@ mod tests {
         test_data.labels = vec![array![1.0, 0.0, 0.0], array![0.0, 1.0, 0.0]];
 
         let result = test_trainer.run(&test_data, 2, 1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_trainer_run_unequal_data_and_labels() {
+        let test_weights: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
+        let test_biases: Array1<f32> = array![0.0, 0.0];
+        let test_activation = Activation::IDENTITY;
+        let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
+        let test_network = Network::new(vec![test_layer]).unwrap();
+
+        let test_updater = Updater::SGD_SIMPLE { learning_rate: 0.1 };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![array![1.0, 0.0], array![0.0, 1.0], array![0.0, 0.0]];
+        test_data.labels = vec![array![1.0, 0.0, 0.0], array![0.0, 1.0, 0.0]];
+
+        let result = test_trainer.run(&test_data, 1, 1);
         assert!(result.is_err());
     }
 
