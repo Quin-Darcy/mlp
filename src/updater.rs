@@ -89,7 +89,7 @@ impl Updater {
                 }
             }
             /*
-             *
+             * TODO: add comment
              */
             Self::SGD_NAG {
                 learning_rate,

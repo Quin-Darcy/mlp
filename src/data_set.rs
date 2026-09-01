@@ -42,19 +42,19 @@ impl DataSet {
 
         // TODO: check to make sure all samples have the same size and all labels have same size
         let sample_size: usize = samples[0].dim();
-        for sample in samples.iter() {
+        for sample in &samples {
             if sample.dim() != sample_size {
                 return Err(DataError::InvalidSizes(
-                    "All samples must be the same size".to_string()
+                    "All samples must be the same size".to_string(),
                 ));
             }
         }
 
         let label_size: usize = labels[0].dim();
-        for label in labels.iter() {
+        for label in &labels {
             if label.dim() != label_size {
                 return Err(DataError::InvalidSizes(
-                    "All labels must be of the same size".to_string()
+                    "All labels must be of the same size".to_string(),
                 ));
             }
         }
