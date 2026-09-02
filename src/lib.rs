@@ -3,7 +3,7 @@
 #![allow(clippy::double_must_use)]
 #![allow(clippy::cast_precision_loss)]
 #![allow(non_camel_case_types)]
-#![allow(clippy::similar_names)]`
+#![allow(clippy::similar_names)]
 
 pub mod activation;
 pub mod cache;
