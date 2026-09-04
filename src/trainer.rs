@@ -43,6 +43,10 @@ impl Batch {
     }
 }
 
+pub struct TrainerOutput {
+    mean_training_loss: Vec<f32>,   
+}
+
 pub struct Trainer {
     pub network: Network,
     pub objective: Objective,
@@ -64,7 +68,7 @@ impl Trainer {
         data: &DataSet,
         batch_size: usize,
         epochs: usize,
-    ) -> Result<(), TrainerError> {
+    ) -> Result<TrainerOutput, TrainerError> {
         if batch_size == 0 {
             return Err(TrainerError::InvalidBatchSize(
                 "Batch size must be greater than zero".to_string(),
@@ -117,9 +121,10 @@ impl Trainer {
         }
 
         let mut batch = Batch::new();
+        let mut mean_training_loss: Vec<f32> = vec![0.0; epochs];
         let mut aggregated_gradients = BackwardCache::new();
         let data_size: usize = data.samples.len();
-        for _ in 0..epochs {
+        for e in 0..epochs {
             // todo: learn rayon enough to figure out how to parallelize this part
             // ie, each run in a single batch can be done in parallel since they
             // are only averaged and are not sequential.
@@ -128,6 +133,12 @@ impl Trainer {
                 for j in 0..batch_size {
                     let network_out: NetworkOutput =
                         self.network.forward_pass(&data.samples[i + j])?;
+
+                    // Compute the loss now that we have the network output
+                    mean_training_loss[e] += self
+                        .objective
+                        .compute(&network_out.output, &data.labels[i + j])?;
+
                     let gradient_objective: Array1<f32> = self
                         .objective
                         .gradient(&network_out.output, &data.labels[i + j])?;
@@ -153,9 +164,12 @@ impl Trainer {
                 self.updater
                     .update(&aggregated_gradients, &mut self.network);
             }
+            mean_training_loss[e] /= data_size as f32;
         }
 
-        Ok(())
+        Ok(TrainerOutput {
+            mean_training_loss
+        })
     }
 }
 
@@ -481,6 +495,38 @@ mod tests {
             (&test_trainer.network.layers[1].biases - &test_expected_biases2)
                 .iter()
                 .all(|d| d.abs() < EPSILON)
+        );
+    }
+
+    #[test]
+    fn test_trainer_run_mean_training_loss() {
+        let test_weights: Array2<f32> = array![[0.5]];
+        let test_biases: Array1<f32> = array![0.5];
+        let test_activation = Activation::IDENTITY;
+        let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
+        let test_network = Network::new(vec![test_layer]).unwrap();
+
+        let test_updater = Updater::SGD_SIMPLE {
+            learning_rate: 0.25,
+        };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![array![1.0], array![-1.0]];
+        test_data.labels = vec![array![1.0], array![-1.0]];
+
+        let test_epochs: usize = 3;
+        let test_output = test_trainer.run(&test_data, 2, test_epochs).unwrap();
+
+        let test_expected_losses: Vec<f32> = vec![0.5, 0.125, 0.031_25];
+
+        assert_eq!(test_output.mean_training_loss.len(), test_epochs);
+        assert!(
+            test_output
+                .mean_training_loss
+                .iter()
+                .zip(test_expected_losses.iter())
+                .all(|(l, e)| (l - e).abs() < EPSILON)
         );
     }
 
