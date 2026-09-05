@@ -500,25 +500,25 @@ mod tests {
 
     #[test]
     fn test_trainer_run_mean_training_loss() {
-        let test_weights: Array2<f32> = array![[0.5]];
-        let test_biases: Array1<f32> = array![0.5];
+        let test_weights: Array2<f32> = array![[0.25]];
+        let test_biases: Array1<f32> = array![0.1];
         let test_activation = Activation::IDENTITY;
         let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
         let test_network = Network::new(vec![test_layer]).unwrap();
 
         let test_updater = Updater::SGD_SIMPLE {
-            learning_rate: 0.25,
+            learning_rate: 0.01,
         };
         let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
 
         let mut test_data = DataSet::new();
         test_data.samples = vec![array![1.0], array![-1.0]];
-        test_data.labels = vec![array![1.0], array![-1.0]];
+        test_data.labels = vec![array![-1.0], array![2.0]];
 
-        let test_epochs: usize = 3;
+        let test_epochs: usize = 2;
         let test_output = test_trainer.run(&test_data, 2, test_epochs).unwrap();
 
-        let test_expected_losses: Vec<f32> = vec![0.5, 0.125, 0.031_25];
+        let test_expected_losses: Vec<f32> = vec![3.2225, 3.094889];
 
         assert_eq!(test_output.mean_training_loss.len(), test_epochs);
         assert!(
