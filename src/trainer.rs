@@ -712,7 +712,7 @@ mod tests {
         let mut increasing_loss_count: usize = 0;
         for i in 0..test_epochs {
             if let Some(loss) = prev_loss {
-                if test_result.mean_training_loss[i] > loss {
+                if test_result.mean_training_loss[i] >= loss {
                     increasing_loss_count += 1;
                 }
             }
