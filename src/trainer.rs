@@ -676,10 +676,55 @@ mod tests {
     }
 
     #[test]
+    fn test_trainer_small_ld_non_increasing_gd() {
+        let test_weights1: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
+        let test_biases1: Array1<f32> = array![0.5, 0.5, 0.5];
+        let test_activation1 = Activation::RELU;
+        let test_layer1 = Layer::new(test_weights1, test_biases1, test_activation1).unwrap();
+
+        let test_weights2: Array2<f32> = array![[1.0, 1.0, 1.0], [-1.0, 0.0, 2.0]];
+        let test_biases2: Array1<f32> = array![0.0, 0.0];
+        let test_activation2 = Activation::RELU;
+        let test_layer2 = Layer::new(test_weights2, test_biases2, test_activation2).unwrap();
+
+        let test_weights3: Array2<f32> = array![[1.0, 2.0], [0.5, -1.0]];
+        let test_biases3: Array1<f32> = array![0.0, 1.0];
+        let test_activation3 = Activation::IDENTITY;
+        let test_layer3 = Layer::new(test_weights3, test_biases3, test_activation3).unwrap();
+
+        let test_layers: Vec<Layer> = vec![test_layer1, test_layer2, test_layer3];
+        let mut test_network = Network::new(test_layers).unwrap();
+        let test_updater = Updater::SGD_SIMPLE { learning_rate: 0.0001 };
+        let test_objective = Objective::MSE;
+
+        let mut test_trainer = Trainer::new(test_network, test_objective, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![array![1.0, 0.0], array![0.0, 1.0], array![-1.0, 0.0], array![0.0, -1.0], array![1.0, -1.0]];
+        test_data.labels = vec![array![2.0, 0.0], array![0.0, 2.0], array![2.0, 0.0], array![0.0, 2.0], array![2.0, 2.0]];
+
+        let test_epochs: usize = 10;
+        let test_batch_size: usize = test_data.samples.len();
+
+        let test_result: TrainerOutput = test_trainer.run(&test_data, test_batch_size, test_epochs).unwrap();
+
+        let mut prev_loss: Option<f32> = None;
+        let mut increasing_loss_count: usize = 0;
+        for i in 0..test_epochs {
+            if let Some(loss) = prev_loss {
+                if test_result.mean_training_loss[i] > loss {
+                    increasing_loss_count += 1;
+                }
+            }
+
+            prev_loss = Some(test_result.mean_training_loss[i]);
+        }
+
+        assert_eq!(increasing_loss_count, 0);
+    }
+
+    #[test]
     fn test_trainer_run_momentum() {
-        // Same network, data and schedule as test_trainer_run, with the
-        // momentum updater. Two epochs so the update vector carried over
-        // from the first epoch shapes the second step
         let test_weights1: Array2<f32> = array![[0.5, -0.5], [0.5, 0.5]];
         let test_biases1: Array1<f32> = array![0.1, -0.1];
         let test_activation1 = Activation::RELU;
