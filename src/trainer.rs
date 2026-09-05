@@ -171,6 +171,45 @@ impl Trainer {
             mean_training_loss
         })
     }
+
+    pub fn evaluate(&self, data: &DataSet) -> Result<f32, TrainerError> {
+        // Validate data to confirm label and samples sizes matches network input and outputs
+        if data.samples[0].dim() != self.network.layers[0].weights.dim().1 {
+            return Err(TrainerError::InvalidDataSampleSize(format!(
+                "Length of data sample ({}) must match size of network input layer ({})",
+                data.samples[0].dim(),
+                self.network.layers[0].weights.dim().1
+            )));
+        }
+
+        let num_layers: usize = self.network.layers.len();
+        if data.labels[0].dim() != self.network.layers[num_layers - 1].weights.dim().0 {
+            return Err(TrainerError::InvalidDataLabelSize(format!(
+                "Length of data label ({}) must match size of network output layer ({})",
+                data.labels[0].dim(),
+                self.network.layers[num_layers - 1].weights.dim().0
+            )));
+        }
+
+        // check there are same number of samples and labels
+        if data.samples.len() != data.labels.len() {
+            return Err(TrainerError::InvalidDataSet(format!(
+                "Number of samples ({}) must match number of labels ({})",
+                data.samples.len(),
+                data.labels.len()
+            )));
+        }
+
+        let mut mean_loss: f32 = 0.0;
+        for (data, label) in data.samples.iter().zip(data.labels.iter()) {
+            let network_out: NetworkOutput = self.network.forward_pass(&data)?;
+            mean_loss += self.objective.compute(&network_out.output, &label)?;
+        }
+
+        mean_loss /= data.samples.len() as f32;
+
+        Ok(mean_loss)
+    }
 }
 
 fn aggregate_batch(
@@ -531,6 +570,112 @@ mod tests {
     }
 
     #[test]
+    fn test_trainer_evaluate_invalid_data_sample_size() {
+        let test_weights: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
+        let test_biases: Array1<f32> = array![0.0, 0.0];
+        let test_activation = Activation::IDENTITY;
+        let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
+        let test_network = Network::new(vec![test_layer]).unwrap();
+
+        let test_updater = Updater::SGD_SIMPLE { learning_rate: 0.1 };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![array![1.0, 0.0, 0.0], array![0.0, 1.0, 0.0]];
+        test_data.labels = vec![array![1.0, 0.0], array![0.0, 1.0]];
+
+        let result = test_trainer.evaluate(&test_data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_trainer_evaluate_invalid_data_label_size() {
+        let test_weights: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
+        let test_biases: Array1<f32> = array![0.0, 0.0];
+        let test_activation = Activation::IDENTITY;
+        let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
+        let test_network = Network::new(vec![test_layer]).unwrap();
+
+        let test_updater = Updater::SGD_SIMPLE { learning_rate: 0.1 };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![array![1.0, 0.0], array![0.0, 1.0]];
+        test_data.labels = vec![array![1.0, 0.0, 0.0], array![0.0, 1.0, 0.0]];
+
+        let result = test_trainer.evaluate(&test_data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_trainer_evaluate_unequal_data_and_labels() {
+        let test_weights: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
+        let test_biases: Array1<f32> = array![0.0, 0.0];
+        let test_activation = Activation::IDENTITY;
+        let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
+        let test_network = Network::new(vec![test_layer]).unwrap();
+
+        let test_updater = Updater::SGD_SIMPLE { learning_rate: 0.1 };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![array![1.0, 0.0], array![0.0, 1.0], array![0.0, 0.0]];
+        test_data.labels = vec![array![1.0, 0.0, 0.0], array![0.0, 1.0, 0.0]];
+
+        let result = test_trainer.evaluate(&test_data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_trainer_evaluate_valid_args() {
+        let test_weights: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0]];
+        let test_biases: Array1<f32> = array![0.0, 0.0];
+        let test_activation = Activation::IDENTITY;
+        let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
+        let test_network = Network::new(vec![test_layer]).unwrap();
+
+        let test_updater = Updater::SGD_SIMPLE { learning_rate: 0.1 };
+        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![
+            array![1.0, 0.0],
+            array![0.0, 1.0],
+            array![1.0, 1.0],
+            array![0.0, 0.0],
+        ];
+        test_data.labels = vec![
+            array![1.0, 0.0],
+            array![0.0, 1.0],
+            array![1.0, 1.0],
+            array![0.0, 0.0],
+        ];
+
+        let result = test_trainer.evaluate(&test_data);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_trainer_evaluate() {
+        let test_weights: Array2<f32> = array![[0.5]];
+        let test_biases: Array1<f32> = array![0.0];
+        let test_activation = Activation::IDENTITY;
+        let test_layer = Layer::new(test_weights, test_biases, test_activation).unwrap();
+        let test_network = Network::new(vec![test_layer]).unwrap();
+        let test_updater = Updater::SGD_SIMPLE { learning_rate: 0.1 };
+        let test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+
+        let mut test_data = DataSet::new();
+        test_data.samples = vec![array![1.0], array![2.0]];
+        test_data.labels = vec![array![4.0], array![8.0]];
+
+        let test_loss: f32 = test_trainer.evaluate(&test_data).unwrap();
+        let test_expected_loss: f32 = 30.625;
+
+        assert!((test_loss - test_expected_loss).abs() < EPSILON);
+    }
+
+    #[test]
     fn test_trainer_run_momentum() {
         // Same network, data and schedule as test_trainer_run, with the
         // momentum updater. Two epochs so the update vector carried over
@@ -826,8 +971,8 @@ mod tests {
                 .compute(&output.output, label)
                 .unwrap();
         }
-        let test_mean_loss: f32 = test_total_loss / (num_samples as f32);
-        assert!(test_mean_loss < 0.001);
+        let test_mean_training_loss: f32 = test_total_loss / (num_samples as f32);
+        assert!(test_mean_training_loss < 0.001);
     }
 
     #[test]
@@ -874,8 +1019,8 @@ mod tests {
                 .compute(&output.output, label)
                 .unwrap();
         }
-        let test_mean_loss: f32 = test_total_loss / (num_samples as f32);
-        assert!(test_mean_loss < 0.001);
+        let test_mean_training_loss: f32 = test_total_loss / (num_samples as f32);
+        assert!(test_mean_training_loss < 0.001);
     }
 
     #[test]
@@ -922,7 +1067,7 @@ mod tests {
                 .compute(&output.output, label)
                 .unwrap();
         }
-        let test_mean_loss: f32 = test_total_loss / (num_samples as f32);
-        assert!(test_mean_loss < 0.001);
+        let test_mean_training_loss: f32 = test_total_loss / (num_samples as f32);
+        assert!(test_mean_training_loss < 0.001);
     }
 }
