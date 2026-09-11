@@ -7,6 +7,7 @@ pub enum ObjectiveError {
 
 pub enum Objective {
     MSE,
+    NLL,
 }
 
 impl Objective {
@@ -25,6 +26,16 @@ impl Objective {
             Self::MSE => {
                 let diff: Array1<f32> = target - input;
                 Ok(diff.dot(&diff) / diff.len() as f32)
+            },
+            Self::NLL => {
+               if target.dim() != 1 {
+                    return Err(ObjectiveError::InvalidArgDimensions(
+                        "target must have only one element".to_string(),
+                    ));
+               }
+
+               let index: usize = target[0] as usize;
+               Ok(-input[index].log2())
             }
         }
     }
@@ -45,6 +56,9 @@ impl Objective {
                 let scalar: f32 = -2.0 / (input.dim() as f32);
                 let diff: Array1<f32> = target - input;
                 Ok(scalar * diff)
+            },
+            Self::NLL => {
+                todo!()
             }
         }
     }
