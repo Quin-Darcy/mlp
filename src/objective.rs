@@ -50,20 +50,42 @@ impl Objective {
         input: &Array1<f32>,
         target: &Array1<f32>,
     ) -> Result<Array1<f32>, ObjectiveError> {
-        if input.dim() != target.dim() {
-            return Err(ObjectiveError::InvalidArgDimensions(
-                "input and target vectors must be the same length".to_string(),
-            ));
-        }
-
         match self {
             Self::MSE => {
+                if input.dim() != target.dim() {
+                    return Err(ObjectiveError::InvalidArgDimensions(
+                        "input and target vectors must be the same length".to_string(),
+                    ));
+                }
+
                 let scalar: f32 = -2.0 / (input.dim() as f32);
                 let diff: Array1<f32> = target - input;
                 Ok(scalar * diff)
             },
             Self::NLL => {
-                todo!()
+                if target.dim() != 1 {
+                    return Err(ObjectiveError::InvalidArgDimensions(
+                        "target must have only one element".to_string(),
+                    ));
+                }
+
+                let index: usize = target[0] as usize;
+                if index >= input.dim() {
+                    return Err(ObjectiveError::InvalidArgDimensions(
+                        "target index cannot be greater than the number of elements in input".to_string(),
+                    ));
+                }
+                
+                let mut v: Vec<f32> = Vec::with_capacity(input.dim());
+                for i in 0..input.dim() {
+                    if i == index {
+                        v.push(input[i] - 1.0_f32);
+                    } else {
+                        v.push(input[i]);
+                    }
+                }
+
+                Ok(Array1::from_vec(v))
             }
         }
     }
