@@ -28,19 +28,26 @@ impl Objective {
                 Ok(diff.dot(&diff) / diff.len() as f32)
             },
             Self::NLL => {
-               if target.dim() != 1 {
+                if target.dim() != 1 {
                     return Err(ObjectiveError::InvalidArgDimensions(
                         "target must have only one element".to_string(),
                     ));
-               }
+                }
 
-               let index: usize = target[0] as usize;
-               if index >= input.dim() {
+                // compute softmax on inputs
+                let s: f32 = input.mapv(|x| x.exp()).sum();
+                let mut probs: Vec<f32> = Vec::with_capacity(input.dim());
+                for i in 0..input.dim() {
+                    probs.push(input[i].exp() / s);
+                }
+
+                let index: usize = target[0] as usize;
+                if index >= probs.len() {
                     return Err(ObjectiveError::InvalidArgDimensions(
                         "target index cannot be greater than the number of elements in input".to_string(),
                     ));
-               }
-               Ok(-input[index].ln())
+                }
+                Ok(-probs[index].ln())
             }
         }
     }
@@ -76,6 +83,7 @@ impl Objective {
                     ));
                 }
                 
+                // compute softmax on inputs
                 let s: f32 = input.mapv(|x| x.exp()).sum();
                 let mut probs: Vec<f32> = Vec::with_capacity(input.dim());
                 for i in 0..input.dim() {
@@ -167,10 +175,10 @@ mod tests {
 
     #[test]
     fn test_objective_nll_compute() {
-        let test_input: Array1<f32> = array![(7.0_f32).exp(), 2.0];
+        let test_input: Array1<f32> = array![(2.0_f32).ln(), (3.0_f32).ln(), (5.0_f32).ln()];
         let test_target: Array1<f32> = array![0.0];
         let test_objective = Objective::NLL;
-        let test_expected_value: f32 = -7.0;
+        let test_expected_value: f32 = -(0.2_f32).ln();
         let test_value: f32 = test_objective.compute(&test_input, &test_target).unwrap();
 
         assert!((test_value - test_expected_value).abs() < EPSILON);
