@@ -76,12 +76,18 @@ impl Objective {
                     ));
                 }
                 
+                let s: f32 = input.mapv(|x| x.exp()).sum();
+                let mut probs: Vec<f32> = Vec::with_capacity(input.dim());
+                for i in 0..input.dim() {
+                    probs.push(input[i].exp() / s);
+                }
+
                 let mut v: Vec<f32> = Vec::with_capacity(input.dim());
                 for i in 0..input.dim() {
                     if i == index {
-                        v.push(input[i] - 1.0_f32);
+                        v.push(probs[i] - 1.0);
                     } else {
-                        v.push(input[i]);
+                        v.push(probs[i]);
                     }
                 }
 
@@ -237,10 +243,10 @@ mod tests {
 
     #[test]
     fn test_objective_nll_gradient() {
-        let test_input: Array1<f32> = array![7.0, 1.0, 0.2];
+        let test_input: Array1<f32> = array![(7.0_f32).ln(), (1.0_f32).ln(), (2_f32).ln()];
         let test_target: Array1<f32> = array![1.0];
         let test_objective = Objective::NLL;
-        let test_expected_value: Array1<f32> = array![7.0, 0.0, 0.2];
+        let test_expected_value: Array1<f32> = array![0.7, -0.9, 0.2];
         let test_value: Array1<f32> = test_objective.gradient(&test_input, &test_target).unwrap();
 
         assert!(
