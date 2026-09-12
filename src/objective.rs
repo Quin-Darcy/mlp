@@ -204,4 +204,51 @@ mod tests {
                 .all(|d| d.abs() < EPSILON)
         );
     }
+
+    #[test]
+    fn test_objective_nll_gradient_valid_args() {
+        let test_input: Array1<f32> = array![1.0];
+        let test_target: Array1<f32> = array![0.0];
+        let test_objective = Objective::NLL;
+        let result = test_objective.gradient(&test_input, &test_target);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_objective_nll_gradient_invalid_target_dim() {
+        let test_input: Array1<f32> = array![1.0, 0.0];
+        let test_target: Array1<f32> = array![1.0, 0.0];
+        let test_objective = Objective::NLL;
+        let result = test_objective.gradient(&test_input, &test_target);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_objective_nll_gradient_invalid_target_index() {
+        let test_input: Array1<f32> = array![1.0, 0.0];
+        let test_target: Array1<f32> = array![4.0];
+        let test_objective = Objective::NLL;
+        let result = test_objective.gradient(&test_input, &test_target);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_objective_nll_gradient() {
+        let test_input: Array1<f32> = array![7.0, 1.0, 0.2];
+        let test_target: Array1<f32> = array![1.0];
+        let test_objective = Objective::NLL;
+        let test_expected_value: Array1<f32> = array![7.0, 0.0, 0.2];
+        let test_value: Array1<f32> = test_objective.gradient(&test_input, &test_target).unwrap();
+
+        assert!(
+            (&test_expected_value - &test_value)
+                .iter()
+                .all(|d| d.abs() < EPSILON)
+        );
+    }
+
+
 }
