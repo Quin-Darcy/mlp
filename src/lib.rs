@@ -5,7 +5,6 @@
 #![allow(non_camel_case_types)]
 #![allow(clippy::similar_names)]
 #[warn(clippy::needless_range_loop)]
-
 pub mod activation;
 pub mod cache;
 pub mod data_set;

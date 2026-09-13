@@ -44,7 +44,7 @@ impl Batch {
 }
 
 pub struct TrainerOutput {
-    mean_training_loss: Vec<f32>,   
+    pub mean_training_loss: Vec<f32>,
 }
 
 pub struct Trainer {
@@ -63,6 +63,7 @@ impl Trainer {
         }
     }
 
+    #[allow(clippy::needless_range_loop)]
     pub fn run(
         &mut self,
         data: &DataSet,
@@ -167,9 +168,7 @@ impl Trainer {
             mean_training_loss[e] /= data_size as f32;
         }
 
-        Ok(TrainerOutput {
-            mean_training_loss
-        })
+        Ok(TrainerOutput { mean_training_loss })
     }
 
     pub fn evaluate(&self, data: &DataSet) -> Result<f32, TrainerError> {
@@ -202,8 +201,8 @@ impl Trainer {
 
         let mut mean_loss: f32 = 0.0;
         for (data, label) in data.samples.iter().zip(data.labels.iter()) {
-            let network_out: NetworkOutput = self.network.forward_pass(&data)?;
-            mean_loss += self.objective.compute(&network_out.output, &label)?;
+            let network_out: NetworkOutput = self.network.forward_pass(data)?;
+            mean_loss += self.objective.compute(&network_out.output, label)?;
         }
 
         mean_loss /= data.samples.len() as f32;
@@ -578,7 +577,7 @@ mod tests {
         let test_network = Network::new(vec![test_layer]).unwrap();
 
         let test_updater = Updater::SGD_SIMPLE { learning_rate: 0.1 };
-        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+        let test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
 
         let mut test_data = DataSet::new();
         test_data.samples = vec![array![1.0, 0.0, 0.0], array![0.0, 1.0, 0.0]];
@@ -597,7 +596,7 @@ mod tests {
         let test_network = Network::new(vec![test_layer]).unwrap();
 
         let test_updater = Updater::SGD_SIMPLE { learning_rate: 0.1 };
-        let mut test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
+        let test_trainer = Trainer::new(test_network, Objective::MSE, test_updater);
 
         let mut test_data = DataSet::new();
         test_data.samples = vec![array![1.0, 0.0], array![0.0, 1.0]];
@@ -676,7 +675,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trainer_small_ld_non_increasing_gd() {
+    fn test_trainer_small_ld_decreasing_gd() {
         let test_weights1: Array2<f32> = array![[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
         let test_biases1: Array1<f32> = array![0.5, 0.5, 0.5];
         let test_activation1 = Activation::RELU;
@@ -694,19 +693,35 @@ mod tests {
 
         let test_layers: Vec<Layer> = vec![test_layer1, test_layer2, test_layer3];
         let mut test_network = Network::new(test_layers).unwrap();
-        let test_updater = Updater::SGD_SIMPLE { learning_rate: 0.0001 };
+        let test_updater = Updater::SGD_SIMPLE {
+            learning_rate: 0.0001,
+        };
         let test_objective = Objective::MSE;
 
         let mut test_trainer = Trainer::new(test_network, test_objective, test_updater);
 
         let mut test_data = DataSet::new();
-        test_data.samples = vec![array![1.0, 0.0], array![0.0, 1.0], array![-1.0, 0.0], array![0.0, -1.0], array![1.0, -1.0]];
-        test_data.labels = vec![array![2.0, 0.0], array![0.0, 2.0], array![2.0, 0.0], array![0.0, 2.0], array![2.0, 2.0]];
+        test_data.samples = vec![
+            array![1.0, 0.0],
+            array![0.0, 1.0],
+            array![-1.0, 0.0],
+            array![0.0, -1.0],
+            array![1.0, -1.0],
+        ];
+        test_data.labels = vec![
+            array![2.0, 0.0],
+            array![0.0, 2.0],
+            array![2.0, 0.0],
+            array![0.0, 2.0],
+            array![2.0, 2.0],
+        ];
 
         let test_epochs: usize = 10;
         let test_batch_size: usize = test_data.samples.len();
 
-        let test_result: TrainerOutput = test_trainer.run(&test_data, test_batch_size, test_epochs).unwrap();
+        let test_result: TrainerOutput = test_trainer
+            .run(&test_data, test_batch_size, test_epochs)
+            .unwrap();
 
         let mut prev_loss: Option<f32> = None;
         let mut increasing_loss_count: usize = 0;

@@ -1,3 +1,5 @@
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
 use ndarray::Array1;
 
 #[derive(Debug)]
@@ -26,7 +28,7 @@ impl Objective {
 
                 let diff: Array1<f32> = target - input;
                 Ok(diff.dot(&diff) / diff.len() as f32)
-            },
+            }
             Self::NLL => {
                 if target.dim() != 1 {
                     return Err(ObjectiveError::InvalidArgDimensions(
@@ -35,7 +37,7 @@ impl Objective {
                 }
 
                 // compute softmax on inputs
-                let s: f32 = input.mapv(|x| x.exp()).sum();
+                let s: f32 = input.mapv(f32::exp).sum();
                 let mut probs: Vec<f32> = Vec::with_capacity(input.dim());
                 for i in 0..input.dim() {
                     probs.push(input[i].exp() / s);
@@ -44,7 +46,8 @@ impl Objective {
                 let index: usize = target[0] as usize;
                 if index >= probs.len() {
                     return Err(ObjectiveError::InvalidArgDimensions(
-                        "target index cannot be greater than the number of elements in input".to_string(),
+                        "target index cannot be greater than the number of elements in input"
+                            .to_string(),
                     ));
                 }
                 Ok(-probs[index].ln())
@@ -52,6 +55,7 @@ impl Objective {
         }
     }
 
+    #[allow(clippy::needless_range_loop)]
     pub fn gradient(
         &self,
         input: &Array1<f32>,
@@ -68,7 +72,7 @@ impl Objective {
                 let scalar: f32 = -2.0 / (input.dim() as f32);
                 let diff: Array1<f32> = target - input;
                 Ok(scalar * diff)
-            },
+            }
             Self::NLL => {
                 if target.dim() != 1 {
                     return Err(ObjectiveError::InvalidArgDimensions(
@@ -79,18 +83,20 @@ impl Objective {
                 let index: usize = target[0] as usize;
                 if index >= input.dim() {
                     return Err(ObjectiveError::InvalidArgDimensions(
-                        "target index cannot be greater than the number of elements in input".to_string(),
+                        "target index cannot be greater than the number of elements in input"
+                            .to_string(),
                     ));
                 }
-                
+
                 // compute softmax on inputs
-                let s: f32 = input.mapv(|x| x.exp()).sum();
+                let s: f32 = input.mapv(f32::exp).sum();
                 let mut probs: Vec<f32> = Vec::with_capacity(input.dim());
                 for i in 0..input.dim() {
                     probs.push(input[i].exp() / s);
                 }
 
                 let mut v: Vec<f32> = Vec::with_capacity(input.dim());
+
                 for i in 0..input.dim() {
                     if i == index {
                         v.push(probs[i] - 1.0);
@@ -263,6 +269,4 @@ mod tests {
                 .all(|d| d.abs() < EPSILON)
         );
     }
-
-
 }
