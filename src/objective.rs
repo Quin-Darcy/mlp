@@ -37,10 +37,17 @@ impl Objective {
                 }
 
                 // compute softmax on inputs
-                let s: f32 = input.mapv(f32::exp).sum();
-                let mut probs: Vec<f32> = Vec::with_capacity(input.dim());
-                for i in 0..input.dim() {
-                    probs.push(input[i].exp() / s);
+                // subtract largest logit to prevent denominator from blowing up
+                let mut max_logit = f32::NEG_INFINITY;
+                for &x in input {
+                    max_logit = max_logit.max(x);
+                }
+
+                let shifted_input: Array1<f32> = input - max_logit;
+                let s: f32 = shifted_input.mapv(f32::exp).sum();
+                let mut probs: Vec<f32> = Vec::with_capacity(shifted_input.dim());
+                for i in 0..shifted_input.dim() {
+                    probs.push(shifted_input[i].exp() / s);
                 }
 
                 let index: usize = target[0] as usize;
@@ -89,10 +96,17 @@ impl Objective {
                 }
 
                 // compute softmax on inputs
-                let s: f32 = input.mapv(f32::exp).sum();
-                let mut probs: Vec<f32> = Vec::with_capacity(input.dim());
-                for i in 0..input.dim() {
-                    probs.push(input[i].exp() / s);
+                // subtract largest logit to prevent denominator from blowing up
+                let mut max_logit = f32::NEG_INFINITY;
+                for &x in input {
+                    max_logit = max_logit.max(x);
+                }
+
+                let shifted_input: Array1<f32> = input - max_logit;
+                let s: f32 = shifted_input.mapv(f32::exp).sum();
+                let mut probs: Vec<f32> = Vec::with_capacity(shifted_input.dim());
+                for i in 0..shifted_input.dim() {
+                    probs.push(shifted_input[i].exp() / s);
                 }
 
                 let mut v: Vec<f32> = Vec::with_capacity(input.dim());
