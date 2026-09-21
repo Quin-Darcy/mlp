@@ -5,6 +5,7 @@ use ndarray::Array1;
 #[derive(Debug)]
 pub enum ObjectiveError {
     InvalidArgDimensions(String),
+    InvalidTargetData(String),
 }
 
 pub enum Objective {
@@ -30,12 +31,6 @@ impl Objective {
                 Ok(diff.dot(&diff) / diff.len() as f32)
             }
             Self::NLL => {
-                if target.dim() != 1 {
-                    return Err(ObjectiveError::InvalidArgDimensions(
-                        "target must have only one element".to_string(),
-                    ));
-                }
-
                 // compute softmax on inputs
                 // subtract largest logit to prevent denominator from blowing up
                 let mut max_logit = f32::NEG_INFINITY;
@@ -50,14 +45,28 @@ impl Objective {
                     probs.push(shifted_input[i].exp() / s);
                 }
 
-                let index: usize = target[0] as usize;
-                if index >= probs.len() {
+                // Target is one-hot vector with 1.0 at the index corresponding
+                // to the category the next sequence term falls into
+                let mut index: Option<usize> = None; 
+                for i in 0..target.len() {
+                    if target[i] == 1.0 {
+                        index = Some(i) 
+                    }
+                }
+                
+                if index.is_none() {
+                    return Err(ObjectiveError::InvalidTargetData(
+                        "Target data must be one-hot vector.".to_string()
+                    ));
+                }
+
+                if index.unwrap() >= probs.len() {
                     return Err(ObjectiveError::InvalidArgDimensions(
                         "target index cannot be greater than the number of elements in input"
                             .to_string(),
                     ));
                 }
-                Ok(-probs[index].ln())
+                Ok(-probs[index.unwrap()].ln())
             }
         }
     }
@@ -81,14 +90,22 @@ impl Objective {
                 Ok(scalar * diff)
             }
             Self::NLL => {
-                if target.dim() != 1 {
-                    return Err(ObjectiveError::InvalidArgDimensions(
-                        "target must have only one element".to_string(),
+                // Target is one-hot vector with 1.0 at the index corresponding
+                // to the category the next sequence term falls into
+                let mut index: Option<usize> = None; 
+                for i in 0..target.len() {
+                    if target[i] == 1.0 {
+                        index = Some(i) 
+                    }
+                }
+                
+                if index.is_none() {
+                    return Err(ObjectiveError::InvalidTargetData(
+                        "Target data must be one-hot vector.".to_string()
                     ));
                 }
 
-                let index: usize = target[0] as usize;
-                if index >= input.dim() {
+                if index.unwrap() >= input.dim() {
                     return Err(ObjectiveError::InvalidArgDimensions(
                         "target index cannot be greater than the number of elements in input"
                             .to_string(),
@@ -112,7 +129,7 @@ impl Objective {
                 let mut v: Vec<f32> = Vec::with_capacity(input.dim());
 
                 for i in 0..input.dim() {
-                    if i == index {
+                    if i == index.unwrap() {
                         v.push(probs[i] - 1.0);
                     } else {
                         v.push(probs[i]);
@@ -166,7 +183,7 @@ mod tests {
     #[test]
     fn test_objective_nll_compute_valid_args() {
         let test_input: Array1<f32> = array![1.0];
-        let test_target: Array1<f32> = array![0.0];
+        let test_target: Array1<f32> = array![1.0];
         let test_objective = Objective::NLL;
         let result = test_objective.compute(&test_input, &test_target);
 
@@ -176,7 +193,7 @@ mod tests {
     #[test]
     fn test_objective_nll_compute_invalid_target_dim() {
         let test_input: Array1<f32> = array![1.0, 0.0];
-        let test_target: Array1<f32> = array![1.0, 0.0];
+        let test_target: Array1<f32> = array![0.0];
         let test_objective = Objective::NLL;
         let result = test_objective.compute(&test_input, &test_target);
 
@@ -186,7 +203,7 @@ mod tests {
     #[test]
     fn test_objective_nll_compute_invalid_target_index() {
         let test_input: Array1<f32> = array![1.0, 0.0];
-        let test_target: Array1<f32> = array![4.0];
+        let test_target: Array1<f32> = array![0.0, 0.0, 1.0];
         let test_objective = Objective::NLL;
         let result = test_objective.compute(&test_input, &test_target);
 
@@ -196,7 +213,7 @@ mod tests {
     #[test]
     fn test_objective_nll_compute() {
         let test_input: Array1<f32> = array![(2.0_f32).ln(), (3.0_f32).ln(), (5.0_f32).ln()];
-        let test_target: Array1<f32> = array![0.0];
+        let test_target: Array1<f32> = array![1.0];
         let test_objective = Objective::NLL;
         let test_expected_value: f32 = -(0.2_f32).ln();
         let test_value: f32 = test_objective.compute(&test_input, &test_target).unwrap();
@@ -242,7 +259,7 @@ mod tests {
     #[test]
     fn test_objective_nll_gradient_valid_args() {
         let test_input: Array1<f32> = array![1.0];
-        let test_target: Array1<f32> = array![0.0];
+        let test_target: Array1<f32> = array![1.0];
         let test_objective = Objective::NLL;
         let result = test_objective.gradient(&test_input, &test_target);
 
@@ -252,7 +269,7 @@ mod tests {
     #[test]
     fn test_objective_nll_gradient_invalid_target_dim() {
         let test_input: Array1<f32> = array![1.0, 0.0];
-        let test_target: Array1<f32> = array![1.0, 0.0];
+        let test_target: Array1<f32> = array![0.0, 0.0, 1.0];
         let test_objective = Objective::NLL;
         let result = test_objective.gradient(&test_input, &test_target);
 
@@ -262,7 +279,7 @@ mod tests {
     #[test]
     fn test_objective_nll_gradient_invalid_target_index() {
         let test_input: Array1<f32> = array![1.0, 0.0];
-        let test_target: Array1<f32> = array![4.0];
+        let test_target: Array1<f32> = array![0.0, 0.0, 0.0, 0.0];
         let test_objective = Objective::NLL;
         let result = test_objective.gradient(&test_input, &test_target);
 
@@ -272,7 +289,7 @@ mod tests {
     #[test]
     fn test_objective_nll_gradient() {
         let test_input: Array1<f32> = array![(7.0_f32).ln(), (1.0_f32).ln(), (2_f32).ln()];
-        let test_target: Array1<f32> = array![1.0];
+        let test_target: Array1<f32> = array![0.0, 1.0];
         let test_objective = Objective::NLL;
         let test_expected_value: Array1<f32> = array![0.7, -0.9, 0.2];
         let test_value: Array1<f32> = test_objective.gradient(&test_input, &test_target).unwrap();

@@ -39,10 +39,12 @@ impl Network {
 
         // Validate that the dimensions of consecutive layers
         for i in 0..layers.len() - 1 {
-            if layers[i].weights.dim().0 != layers[i + 1].weights.dim().1 {
-                return Err(NetworkError::InvalidArgDimensions(
-                    "The number of rows in one layer's weight matrix must equal the number of columns in the next layer's weight matrix.".to_string(),
-                ));
+            if layers[i].weights.nrows() != layers[i + 1].weights.ncols() {
+                return Err(NetworkError::InvalidArgDimensions(format!(
+                    "The number of rows in one layer's weight matrix ({}) must equal the number of columns in the next layer's weight matrix ({}).",
+                    layers[i].weights.nrows(),
+                    layers[i + 1].weights.ncols()
+                )));
             }
         }
 
