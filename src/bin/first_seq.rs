@@ -75,9 +75,14 @@ impl SeqOut {
         }
     }
 
+    pub const fn one_hot(self) -> [f32; 4] {
+        let mut v = [0.0; 4];
+        v[self as usize] = 1.0;
+        v
+    }
+
     pub fn get_vec(self) -> Array1<f32> {
-        let s: usize = self as usize;
-        Array1::from_vec(vec![s as f32])
+        Array1::from_vec(self.one_hot().to_vec())
     }
 }
 
@@ -127,32 +132,35 @@ fn main() {
     let seed: u64 = 49;
     let mut rng = StdRng::seed_from_u64(seed);
 
-    let l1_dims: [usize; 2] = [3, 12];
+    let l1_dims: [usize; 2] = [6, 12];
     let l1_vrange: [f32; 2] = [-1.0, 1.0];
     let l1_activation = Activation::RELU;
     let l1 = Layer::new_random(l1_dims, l1_vrange, l1_activation, &mut rng).unwrap();
 
-    let l2_dims: [usize; 2] = [4, 3];
+    let l2_dims: [usize; 2] = [8, 6];
     let l2_vrange: [f32; 2] = [-1.0, 1.0];
-    let l2_activation = Activation::IDENTITY;
+    let l2_activation = Activation::RELU;
     let l2 = Layer::new_random(l2_dims, l2_vrange, l2_activation, &mut rng).unwrap();
 
-    let layers: Vec<Layer> = vec![l1, l2];
+    let l3_dims: [usize; 2] = [4, 8];
+    let l3_vrange: [f32; 2] = [-1.0, 1.0];
+    let l3_activation = Activation::IDENTITY;
+    let l3 = Layer::new_random(l3_dims, l3_vrange, l3_activation, &mut rng).unwrap();
+
+    let layers: Vec<Layer> = vec![l1, l2, l3];
     let network = Network::new(layers).unwrap();
     let updater = Updater::SGD_SIMPLE {
         learning_rate: 0.01,
     };
     let objective = Objective::NLL;
-    let trainer = Trainer::new(network, objective, updater);
+    let mut trainer = Trainer::new(network, objective, updater);
 
-    let sequence_len: usize = 17;
+    let sequence_len: usize = 1000;
     let cycle_len: usize = 3;
     let sequence: Vec<usize> = create_sequence(sequence_len, cycle_len);
     let data: DataSet = parse_sequence(&sequence, cycle_len - 1);
 
-    // Get baseline evaluation
-    let pre_trained_loss: f32 = trainer.evaluate(&data).unwrap();
-    println!("Pre-Trained Loss: {}", pre_trained_loss);
-
-    // todo: now all I need to do is train network on dataset!
+    let mtl: Vec<f32> = trainer.run(&data, 1, 1000).unwrap().mean_training_loss;
+    println!("Pre-Training Loss: {}", mtl[0]);
+    println!("Post-Training Loss: {}", mtl[mtl.len() - 1]);
 }
